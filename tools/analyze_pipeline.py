@@ -28,6 +28,10 @@ class TraceEntry:
     result_execute: int
     stall: str
     branch_taken: bool
+    stall_flag: bool
+    bubble: bool
+    fwd_rs1: bool
+    fwd_rs2: bool
 
 
 def read_hex_program(path: Path) -> Dict[int, int]:
@@ -48,6 +52,10 @@ def parse_trace(path: Path) -> List[TraceEntry]:
     with path.open() as f:
         reader = csv.DictReader(f)
         for row in reader:
+            stall_str = row.get("stall", "none")
+            if stall_str is None:
+                stall_str = "none"
+            stall_str = stall_str.strip()
             entries.append(
                 TraceEntry(
                     cycle=int(row["cycle"]),
@@ -56,8 +64,12 @@ def parse_trace(path: Path) -> List[TraceEntry]:
                     instr_decode=int(row["instr_decode"], 16),
                     instr_execute=int(row["instr_execute"], 16),
                     result_execute=int(row["result_execute"], 16),
-                    stall=row.get("stall", "none"),
+                    stall=stall_str,
                     branch_taken=row.get("branch_taken", "0") not in ("0", "false", "False"),
+                    stall_flag=row.get("stall_flag", "0") not in ("0", "false", "False", "", None),
+                    bubble=row.get("bubble", "0") not in ("0", "false", "False", "", None),
+                    fwd_rs1=row.get("forward_rs1", "0") not in ("0", "false", "False", "", None),
+                    fwd_rs2=row.get("forward_rs2", "0") not in ("0", "false", "False", "", None),
                 )
             )
     return entries
@@ -201,34 +213,38 @@ def compute_hazards(entries: List[TraceEntry]) -> int:
     return potential_raw
 
 
-def print_timeline(entries: List[TraceEntry], prog: Dict[int, int]) -> None:
+def print_timeline(entries: List[TraceEntry], prog: Dict[int, int], emit) -> None:
     header = f"{'Cycle':>5} | {'PC_F':>8} | {'Fetch':<24} | {'Decode':<24} | {'Execute':<24} | Notes"
-    print(header)
-    print("-" * len(header))
+    emit(header)
+    emit("-" * len(header))
     for e in entries:
         note_parts = []
         if e.branch_taken:
             note_parts.append("branch_taken")
-        if e.stall and e.stall.lower() not in ("", "none"):
-            note_parts.append(f"stall:{e.stall}")
+        if e.stall_flag:
+            note_parts.append("STALL(load-use)")
+        if e.fwd_rs1:
+            note_parts.append("FWD_RS1")
+        if e.fwd_rs2:
+            note_parts.append("FWD_RS2")
         note = ";".join(note_parts)
-        print(
+        emit(
             f"{e.cycle:5d} | {e.pc_f:08x} | {disasm(e.instr_fetch):<24} | "
             f"{disasm(e.instr_decode):<24} | {disasm(e.instr_execute):<24} | {note}"
         )
 
 
-def print_program_listing(program: Dict[int, int]) -> None:
+def print_program_listing(program: Dict[int, int], emit) -> None:
     if not program:
-        print("No program contents decoded (hex file missing or empty).")
+        emit("No program contents decoded (hex file missing or empty).")
         return
-    print("--- Program (from hex) ---")
-    print(f"{'Addr':>8} | {'Instr':>8} | Disassembly")
-    print("-" * 40)
+    emit("--- Program (from hex) ---")
+    emit(f"{'Addr':>8} | {'Instr':>8} | Disassembly")
+    emit("-" * 40)
     for addr in sorted(program.keys()):
         instr = program[addr]
-        print(f"{addr:08x} | {instr:08x} | {disasm(instr)}")
-    print()
+        emit(f"{addr:08x} | {instr:08x} | {disasm(instr)}")
+    emit("")
 
 
 def main() -> None:
@@ -236,11 +252,18 @@ def main() -> None:
     parser.add_argument("--trace", type=Path, default=Path("sim/pipeline_trace.log"), help="Path to trace log")
     parser.add_argument("--hex", dest="hexfile", type=Path, default=Path("tests/sample_program.hex"), help="Program hex file")
     parser.add_argument("--show", action="store_true", help="Pretty print pipeline timeline")
+    parser.add_argument("--out", dest="outfile", type=Path, default=Path("sim/analyze_report.log"), help="Write report to this file")
     args = parser.parse_args()
+
+    out_lines: List[str] = []
+
+    def emit(line: str = "") -> None:
+        out_lines.append(line)
+        print(line)
 
     trace_entries = parse_trace(args.trace)
     if not trace_entries:
-        print(f"No trace entries found in {args.trace}")
+        emit(f"No trace entries found in {args.trace}")
         return
 
     program = read_hex_program(args.hexfile)
@@ -251,21 +274,30 @@ def main() -> None:
     ipc = 0.0 if total_cycles == 0 else retired / total_cycles
     branches_taken = sum(1 for e in trace_entries if e.branch_taken)
     potential_raw = compute_hazards(trace_entries)
+    stall_cycles = sum(1 for e in trace_entries if e.stall_flag)
+    forwarding_cycles = sum(1 for e in trace_entries if e.fwd_rs1 or e.fwd_rs2)
 
-    print_program_listing(program)
+    print_program_listing(program, emit)
 
-    print("=== Pipeline Report ===")
-    print(f"Trace file      : {args.trace}")
-    print(f"Program hex     : {args.hexfile}")
-    print(f"Total cycles    : {total_cycles}")
-    print(f"Instructions    : {retired}")
-    print(f"CPI / IPC       : {cpi:.3f} / {ipc:.3f}")
-    print(f"Branches taken  : {branches_taken}")
-    print(f"Potential RAW hazards (decode vs prev execute): {potential_raw}")
+    emit("=== Pipeline Report ===")
+    emit(f"Trace file      : {args.trace}")
+    emit(f"Program hex     : {args.hexfile}")
+    emit(f"Total cycles    : {total_cycles}")
+    emit(f"Instructions    : {retired}")
+    emit(f"CPI / IPC       : {cpi:.3f} / {ipc:.3f}")
+    emit(f"Branches taken  : {branches_taken}")
+    emit(f"Potential RAW hazards (decode vs prev execute): {potential_raw}")
+    emit(f"Stall cycles (load-use)   : {stall_cycles}")
+    emit(f"Cycles with forwarding    : {forwarding_cycles}")
 
     if args.show:
         print("\n--- Timeline ---")
-        print_timeline(trace_entries, program)
+        print_timeline(trace_entries, program, emit)
+
+    if args.outfile:
+        args.outfile.parent.mkdir(parents=True, exist_ok=True)
+        args.outfile.write_text("\n".join(out_lines) + "\n")
+        emit(f"Report written to {args.outfile}")
 
 
 if __name__ == "__main__":

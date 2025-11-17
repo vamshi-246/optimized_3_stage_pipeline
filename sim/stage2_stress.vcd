@@ -1,5 +1,5 @@
 $date
-	Tue Nov 18 03:58:06 2025
+	Tue Nov 18 04:05:53 2025
 $end
 $version
 	Icarus Verilog
@@ -150,16 +150,16 @@ $var wire 32 0" rdata2 [31:0] $end
 $var wire 32 1" rdata1 [31:0] $end
 $var integer 32 2" i [31:0] $end
 $upscope $end
-$scope begin $unm_blk_41 $end
+$scope begin $unm_blk_42 $end
 $var reg 8 3" b [7:0] $end
 $upscope $end
-$scope begin $unm_blk_42 $end
+$scope begin $unm_blk_43 $end
 $var reg 8 4" b [7:0] $end
 $upscope $end
-$scope begin $unm_blk_43 $end
+$scope begin $unm_blk_44 $end
 $var reg 16 5" h [15:0] $end
 $upscope $end
-$scope begin $unm_blk_44 $end
+$scope begin $unm_blk_45 $end
 $var reg 16 6" h [15:0] $end
 $upscope $end
 $upscope $end

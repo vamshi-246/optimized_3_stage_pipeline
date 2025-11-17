@@ -7,7 +7,11 @@ module decoder (
     output control_t    ctrl,
     output logic [4:0]  rs1,
     output logic [4:0]  rs2,
-    output logic [4:0]  rd
+    output logic [4:0]  rd,
+    // Hints for hazard / forwarding logic:
+    // indicate whether the decoded instruction logically uses rs1/rs2.
+    output logic        use_rs1,
+    output logic        use_rs2
 );
 
   logic [6:0] opcode;
@@ -38,11 +42,17 @@ module decoder (
     ctrl.is_lui      = 1'b0;
     ctrl.is_auipc    = 1'b0;
 
+    // By default, assume rs1 is used (most ops) and rs2 is not.
+    use_rs1 = 1'b1;
+    use_rs2 = 1'b0;
+
     unique case (opcode)
       7'b0110011: begin // R-type
         ctrl.op2_sel  = OP2_RS2;
         ctrl.reg_write = 1'b1;
         ctrl.wb_sel    = WB_ALU;
+        use_rs1        = 1'b1;
+        use_rs2        = 1'b1;
         unique case ({funct7, funct3})
           10'b0000000_000: ctrl.alu_op = ALU_ADD;
           10'b0100000_000: ctrl.alu_op = ALU_SUB;
@@ -63,6 +73,8 @@ module decoder (
         ctrl.wb_sel    = WB_ALU;
         ctrl.op2_sel   = OP2_IMM;
         ctrl.imm_type  = IMM_I;
+        use_rs1        = 1'b1;
+        use_rs2        = 1'b0;
         unique case (funct3)
           3'b000: ctrl.alu_op = ALU_ADD;                  // ADDI
           3'b010: ctrl.alu_op = ALU_SLT;                  // SLTI
@@ -90,6 +102,8 @@ module decoder (
         ctrl.imm_type  = IMM_I;
         ctrl.alu_op    = ALU_ADD; // address calc
         ctrl.mem_funct3 = funct3;
+        use_rs1        = 1'b1; // base register
+        use_rs2        = 1'b0;
       end
 
       7'b0100011: begin // Stores
@@ -98,6 +112,8 @@ module decoder (
         ctrl.imm_type  = IMM_S;
         ctrl.alu_op    = ALU_ADD;
         ctrl.mem_funct3 = funct3;
+        use_rs1        = 1'b1; // base
+        use_rs2        = 1'b1; // store data
       end
 
       7'b1100011: begin // Branches
@@ -105,6 +121,8 @@ module decoder (
         ctrl.op2_sel   = OP2_RS2;
         ctrl.imm_type  = IMM_B;
         ctrl.alu_op    = ALU_ADD; // unused
+        use_rs1        = 1'b1;
+        use_rs2        = 1'b1;
         unique case (funct3)
           3'b000: ctrl.branch_type = BR_EQ;
           3'b001: ctrl.branch_type = BR_NE;
@@ -124,6 +142,8 @@ module decoder (
         ctrl.op1_sel    = OP1_PC;
         ctrl.op2_sel    = OP2_IMM;
         ctrl.alu_op     = ALU_ADD;
+        use_rs1         = 1'b0;
+        use_rs2         = 1'b0;
       end
 
       7'b1100111: begin // JALR
@@ -134,6 +154,8 @@ module decoder (
         ctrl.op1_sel    = OP1_RS1;
         ctrl.op2_sel    = OP2_IMM;
         ctrl.alu_op     = ALU_ADD;
+        use_rs1         = 1'b1;
+        use_rs2         = 1'b0;
       end
 
       7'b0110111: begin // LUI
@@ -144,6 +166,8 @@ module decoder (
         ctrl.op2_sel   = OP2_IMM;
         ctrl.is_lui    = 1'b1;
         ctrl.alu_op    = ALU_ADD;
+        use_rs1        = 1'b0;
+        use_rs2        = 1'b0;
       end
 
       7'b0010111: begin // AUIPC
@@ -154,6 +178,8 @@ module decoder (
         ctrl.op2_sel   = OP2_IMM;
         ctrl.is_auipc  = 1'b1;
         ctrl.alu_op    = ALU_ADD;
+        use_rs1        = 1'b0;
+        use_rs2        = 1'b0;
       end
 
       default: begin

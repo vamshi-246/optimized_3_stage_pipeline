@@ -20,7 +20,11 @@ module rv32i_cpu (
     output logic [31:0] dbg_instr_d,
     output logic [31:0] dbg_instr_e,
     output logic [31:0] dbg_result_e,
-    output logic        dbg_branch_taken
+    output logic        dbg_branch_taken,
+    output logic        dbg_stall,
+    output logic        dbg_bubble_ex,
+    output logic        dbg_fwd_rs1,
+    output logic        dbg_fwd_rs2
 );
 
   localparam logic [31:0] NOP = 32'h00000013; // addi x0, x0, 0
@@ -42,8 +46,10 @@ module rv32i_cpu (
   // Decode stage signals
   control_t ctrl_d;
   logic [4:0] rs1_d, rs2_d, rd_d;
+  logic       use_rs1_d, use_rs2_d;
   logic [31:0] imm_d;
   logic [31:0] rs1_val_d, rs2_val_d;
+  logic [31:0] rs1_val_d_fwd, rs2_val_d_fwd;
 
   // Decode/Execute pipeline registers
   logic [31:0] de_pc;
@@ -61,6 +67,12 @@ module rv32i_cpu (
   logic branch_taken_e;
   logic [31:0] load_data_e;
   logic [31:0] wb_data_e;
+
+  // Hazard / forwarding controls
+  logic        stall_if_id;
+  logic        bubble_ex;
+  logic        is_load_ex;
+  logic        fwd_rs1_en, fwd_rs2_en;
 
   // Register file instance
   regfile u_regfile (
@@ -80,13 +92,46 @@ module rv32i_cpu (
       .ctrl  (ctrl_d),
       .rs1   (rs1_d),
       .rs2   (rs2_d),
-      .rd    (rd_d)
+      .rd    (rd_d),
+      .use_rs1(use_rs1_d),
+      .use_rs2(use_rs2_d)
   );
 
   imm_gen u_imm_gen (
       .instr  (fd_instr),
       .imm_sel(ctrl_d.imm_type),
       .imm    (imm_d)
+  );
+
+  // Hazard detection: load-use between EX and ID
+  hazard_unit u_hazard_unit (
+      .rs1_id     (rs1_d),
+      .rs2_id     (rs2_d),
+      .use_rs1_id (use_rs1_d),
+      .use_rs2_id (use_rs2_d),
+      .rd_ex      (de_rd),
+      .reg_write_ex(de_ctrl.reg_write),
+      .mem_read_ex (de_ctrl.mem_read),
+      .stall_if_id (stall_if_id),
+      .bubble_ex   (bubble_ex)
+  );
+
+  // Forwarding from EX result into ID register operands (for ALU/branch).
+  assign is_load_ex = de_ctrl.mem_read && !de_ctrl.mem_write;
+
+  forward_unit u_forward_unit (
+      .rs1_id      (rs1_d),
+      .rs2_id      (rs2_d),
+      .rs1_data_id (rs1_val_d),
+      .rs2_data_id (rs2_val_d),
+      .rd_ex       (de_rd),
+      .reg_write_ex(de_ctrl.reg_write),
+      .is_load_ex  (is_load_ex),
+      .ex_result   (wb_data_e),
+      .fwd_rs1     (rs1_val_d_fwd),
+      .fwd_rs2     (rs2_val_d_fwd),
+      .fwd_rs1_en  (fwd_rs1_en),
+      .fwd_rs2_en  (fwd_rs2_en)
   );
 
   alu u_alu (
@@ -109,6 +154,11 @@ module rv32i_cpu (
       pc_f     <= 32'h0;
       fd_pc    <= 32'h0;
       fd_instr <= NOP;
+    end else if (stall_if_id) begin
+      // Hold PC and IF/ID on a hazard stall
+      pc_f     <= pc_f;
+      fd_pc    <= fd_pc;
+      fd_instr <= fd_instr;
     end else begin
       pc_f  <= pc_next;
       fd_pc <= pc_f;
@@ -139,6 +189,17 @@ module rv32i_cpu (
       de_rs1_val <= 32'h0;
       de_rs2_val <= 32'h0;
       de_imm     <= 32'h0;
+    end else if (bubble_ex) begin
+      // Insert bubble into execute on a hazard stall
+      de_pc      <= 32'h0;
+      de_instr   <= NOP;
+      de_ctrl    <= '0;
+      de_rs1     <= 5'd0;
+      de_rs2     <= 5'd0;
+      de_rd      <= 5'd0;
+      de_rs1_val <= 32'h0;
+      de_rs2_val <= 32'h0;
+      de_imm     <= 32'h0;
     end else begin
       de_pc      <= fd_pc;
       de_instr   <= fd_instr;
@@ -146,8 +207,8 @@ module rv32i_cpu (
       de_rs1     <= rs1_d;
       de_rs2     <= rs2_d;
       de_rd      <= rd_d;
-      de_rs1_val <= rs1_val_d;
-      de_rs2_val <= rs2_val_d;
+      de_rs1_val <= rs1_val_d_fwd;
+      de_rs2_val <= rs2_val_d_fwd;
       de_imm     <= imm_d;
     end
   end
@@ -261,5 +322,10 @@ module rv32i_cpu (
   assign dbg_instr_e      = de_instr;
   assign dbg_result_e     = wb_data_e;
   assign dbg_branch_taken = branch_taken_e;
+   // Stage-2 debug indicators
+  assign dbg_stall        = stall_if_id;
+  assign dbg_bubble_ex    = bubble_ex;
+  assign dbg_fwd_rs1      = fwd_rs1_en;
+  assign dbg_fwd_rs2      = fwd_rs2_en;
 
 endmodule

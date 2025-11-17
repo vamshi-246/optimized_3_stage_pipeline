@@ -31,7 +31,9 @@ $compileArgs = @(
     "src/units/branch_unit.sv",
     "src/units/imm_gen.sv",
     "src/units/regfile.sv",
-    "src/units/decoder.sv"
+    "src/units/decoder.sv",
+    "src/units/hazard_unit.sv",
+    "src/units/forward_unit.sv"
 )
 
 Write-Host "Compiling RTL with iverilog..."
