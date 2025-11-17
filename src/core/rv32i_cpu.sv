@@ -24,7 +24,8 @@ module rv32i_cpu (
     output logic        dbg_stall,
     output logic        dbg_bubble_ex,
     output logic        dbg_fwd_rs1,
-    output logic        dbg_fwd_rs2
+    output logic        dbg_fwd_rs2,
+    output logic [31:0] dbg_busy_vec
 );
 
   localparam logic [31:0] NOP = 32'h00000013; // addi x0, x0, 0
@@ -73,6 +74,10 @@ module rv32i_cpu (
   logic        bubble_ex;
   logic        is_load_ex;
   logic        fwd_rs1_en, fwd_rs2_en;
+  // Mini-scoreboard (register status table) signals
+  logic        hazard_rs1, hazard_rs2;
+  logic        prod_is_load_rs1, prod_is_load_rs2;
+  logic [31:0] busy_vec;
 
   // Register file instance
   regfile u_regfile (
@@ -103,21 +108,38 @@ module rv32i_cpu (
       .imm    (imm_d)
   );
 
-  // Hazard detection: load-use between EX and ID
+  // Classify EX instruction as load (used by forwarding and scoreboard).
+  assign is_load_ex = de_ctrl.mem_read && !de_ctrl.mem_write;
+
+  // Mini-scoreboard: track pending writes and classify hazards seen in ID.
+  reg_status_table u_reg_status_table (
+      .clk                (clk),
+      .rst                (rst),
+      .rd_write_en_ex     (de_ctrl.reg_write),
+      .rd_ex              (de_rd),
+      .is_load_ex         (is_load_ex),
+      .rs1_id             (rs1_d),
+      .rs2_id             (rs2_d),
+      .use_rs1_id         (use_rs1_d),
+      .use_rs2_id         (use_rs2_d),
+      .hazard_rs1         (hazard_rs1),
+      .hazard_rs2         (hazard_rs2),
+      .producer_is_load_rs1(prod_is_load_rs1),
+      .producer_is_load_rs2(prod_is_load_rs2),
+      .busy_vec           (busy_vec)
+  );
+
+  // Hazard detection: stall only on load-use hazards reported by the scoreboard.
   hazard_unit u_hazard_unit (
-      .rs1_id     (rs1_d),
-      .rs2_id     (rs2_d),
-      .use_rs1_id (use_rs1_d),
-      .use_rs2_id (use_rs2_d),
-      .rd_ex      (de_rd),
-      .reg_write_ex(de_ctrl.reg_write),
-      .mem_read_ex (de_ctrl.mem_read),
-      .stall_if_id (stall_if_id),
-      .bubble_ex   (bubble_ex)
+      .hazard_rs1         (hazard_rs1),
+      .hazard_rs2         (hazard_rs2),
+      .producer_is_load_rs1(prod_is_load_rs1),
+      .producer_is_load_rs2(prod_is_load_rs2),
+      .stall_if_id        (stall_if_id),
+      .bubble_ex          (bubble_ex)
   );
 
   // Forwarding from EX result into ID register operands (for ALU/branch).
-  assign is_load_ex = de_ctrl.mem_read && !de_ctrl.mem_write;
 
   forward_unit u_forward_unit (
       .rs1_id      (rs1_d),
@@ -322,10 +344,11 @@ module rv32i_cpu (
   assign dbg_instr_e      = de_instr;
   assign dbg_result_e     = wb_data_e;
   assign dbg_branch_taken = branch_taken_e;
-   // Stage-2 debug indicators
+  // Stage-2/2.5 debug indicators
   assign dbg_stall        = stall_if_id;
   assign dbg_bubble_ex    = bubble_ex;
   assign dbg_fwd_rs1      = fwd_rs1_en;
   assign dbg_fwd_rs2      = fwd_rs2_en;
+  assign dbg_busy_vec     = busy_vec;
 
 endmodule

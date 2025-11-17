@@ -32,6 +32,7 @@ class TraceEntry:
     bubble: bool
     fwd_rs1: bool
     fwd_rs2: bool
+    busy_vec: int
 
 
 def read_hex_program(path: Path) -> Dict[int, int]:
@@ -70,6 +71,7 @@ def parse_trace(path: Path) -> List[TraceEntry]:
                     bubble=row.get("bubble", "0") not in ("0", "false", "False", "", None),
                     fwd_rs1=row.get("forward_rs1", "0") not in ("0", "false", "False", "", None),
                     fwd_rs2=row.get("forward_rs2", "0") not in ("0", "false", "False", "", None),
+                    busy_vec=int(row.get("busy_vec", "0"), 16),
                 )
             )
     return entries
@@ -227,6 +229,8 @@ def print_timeline(entries: List[TraceEntry], prog: Dict[int, int], emit) -> Non
             note_parts.append("FWD_RS1")
         if e.fwd_rs2:
             note_parts.append("FWD_RS2")
+        if e.busy_vec:
+            note_parts.append(f"busy=0x{e.busy_vec:08x}")
         note = ";".join(note_parts)
         emit(
             f"{e.cycle:5d} | {e.pc_f:08x} | {disasm(e.instr_fetch):<24} | "
@@ -276,6 +280,9 @@ def main() -> None:
     potential_raw = compute_hazards(trace_entries)
     stall_cycles = sum(1 for e in trace_entries if e.stall_flag)
     forwarding_cycles = sum(1 for e in trace_entries if e.fwd_rs1 or e.fwd_rs2)
+    avg_busy = 0.0
+    if total_cycles:
+        avg_busy = sum(bin(e.busy_vec).count("1") for e in trace_entries) / total_cycles
 
     print_program_listing(program, emit)
 
@@ -289,6 +296,7 @@ def main() -> None:
     emit(f"Potential RAW hazards (decode vs prev execute): {potential_raw}")
     emit(f"Stall cycles (load-use)   : {stall_cycles}")
     emit(f"Cycles with forwarding    : {forwarding_cycles}")
+    emit(f"Average busy registers    : {avg_busy:.2f}")
 
     if args.show:
         print("\n--- Timeline ---")

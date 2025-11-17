@@ -101,7 +101,7 @@ module universal_tb;
   // Trace logging
   initial begin
     trace_fd = $fopen("sim/pipeline_trace.log", "w");
-    $fwrite(trace_fd, "cycle,pc_f,instr_fetch,instr_decode,instr_execute,result_execute,stall,branch_taken,stall_flag,bubble,forward_rs1,forward_rs2\n");
+    $fwrite(trace_fd, "cycle,pc_f,instr_fetch,instr_decode,instr_execute,result_execute,stall,branch_taken,stall_flag,bubble,forward_rs1,forward_rs2,busy_vec\n");
   end
 
   // Cycle-by-cycle tracing and stop conditions
@@ -109,20 +109,21 @@ module universal_tb;
     if (rst) begin
       cycle_count <= 0;
     end else begin
-      cycle_count <= cycle_count + 1;
-      $fwrite(trace_fd, "%0d,%08x,%08x,%08x,%08x,%08x,%s,%0d,%0d,%0d,%0d,%0d\n",
-              cycle_count,
-              dut.dbg_pc_f,
-              dut.dbg_instr_f,
-              dut.dbg_instr_d,
-              dut.dbg_instr_e,
-              dut.dbg_result_e,
-              dut.dbg_stall ? "stall" : "none",
-              dut.dbg_branch_taken,
-              dut.dbg_stall,
-              dut.dbg_bubble_ex,
-              dut.dbg_fwd_rs1,
-              dut.dbg_fwd_rs2);
+	      cycle_count <= cycle_count + 1;
+	      $fwrite(trace_fd, "%0d,%08x,%08x,%08x,%08x,%08x,%s,%0d,%0d,%0d,%0d,%0d,%08x\n",
+	              cycle_count,
+	              dut.dbg_pc_f,
+	              dut.dbg_instr_f,
+	              dut.dbg_instr_d,
+	              dut.dbg_instr_e,
+	              dut.dbg_result_e,
+	              dut.dbg_stall ? "stall" : "none",
+	              dut.dbg_branch_taken,
+	              dut.dbg_stall,
+	              dut.dbg_bubble_ex,
+	              dut.dbg_fwd_rs1,
+	              dut.dbg_fwd_rs2,
+	              dut.dbg_busy_vec);
 
       if (dut.dbg_instr_e == 32'h00100073 || dut.dbg_instr_e == 32'h00000073) begin
         $display("Halting on system instruction at cycle %0d", cycle_count);
