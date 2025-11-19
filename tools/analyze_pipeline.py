@@ -31,6 +31,10 @@ class TraceEntry:
     stall: str
     branch_taken: bool
     branch_taken1: bool
+    jump_taken: bool
+    jump_taken1: bool
+    jump_target: int
+    jump_target1: int
     stall_flag: bool
     bubble: bool
     fwd_rs1: bool
@@ -100,6 +104,10 @@ def parse_trace(path: Path) -> List[TraceEntry]:
                     stall=stall_str,
                     branch_taken=row.get("branch_taken", "0") not in ("0", "false", "False"),
                     branch_taken1=row.get("branch_taken1", "0") not in ("0", "false", "False"),
+                    jump_taken=row.get("jump_taken", "0") not in ("0", "false", "False"),
+                    jump_taken1=row.get("jump_taken1", "0") not in ("0", "false", "False"),
+                    jump_target=safe_hex(row.get("jump_target", "0"), 0),
+                    jump_target1=safe_hex(row.get("jump_target1", "0"), 0),
                     stall_flag=row.get("stall_flag", "0") not in ("0", "false", "False", "", None),
                     bubble=row.get("bubble", "0") not in ("0", "false", "False", "", None),
                     fwd_rs1=row.get("forward_rs1", "0") not in ("0", "false", "False", "", None),
@@ -258,6 +266,10 @@ def print_timeline(entries: List[TraceEntry], prog: Dict[int, int], emit) -> Non
             note_parts.append("branch_taken")
         if e.branch_taken1:
             note_parts.append("branch1_taken")
+        if e.jump_taken:
+            note_parts.append(f"jump0->0x{e.jump_target:08x}")
+        if e.jump_taken1:
+            note_parts.append(f"jump1->0x{e.jump_target1:08x}")
         if e.stall_flag:
             note_parts.append("STALL(load-use)")
         if e.fwd_rs1:

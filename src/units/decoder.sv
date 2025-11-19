@@ -43,6 +43,9 @@ module decoder (
     ctrl.is_auipc    = 1'b0;
     ctrl.system      = 1'b0;
     ctrl.is_store    = 1'b0;
+    ctrl.is_jump     = 1'b0;
+    ctrl.is_jal      = 1'b0;
+    ctrl.is_jalr     = 1'b0;
 
     // By default, assume rs1 is used (most ops) and rs2 is not.
     use_rs1 = 1'b1;
@@ -139,6 +142,8 @@ module decoder (
 
       7'b1101111: begin // JAL
         ctrl.jump       = 1'b1;
+        ctrl.is_jump    = 1'b1;
+        ctrl.is_jal     = 1'b1;
         ctrl.reg_write  = 1'b1;
         ctrl.imm_type   = IMM_J;
         ctrl.wb_sel     = WB_PC4;
@@ -151,6 +156,8 @@ module decoder (
 
       7'b1100111: begin // JALR
         ctrl.jump       = 1'b1;
+        ctrl.is_jump    = 1'b1;
+        ctrl.is_jalr    = 1'b1;
         ctrl.reg_write  = 1'b1;
         ctrl.imm_type   = IMM_I;
         ctrl.wb_sel     = WB_PC4;

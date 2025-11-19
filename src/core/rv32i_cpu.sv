@@ -28,6 +28,10 @@ module rv32i_cpu (
     output logic [31:0] dbg_result_e1,
     output logic        dbg_branch_taken,
     output logic        dbg_branch_taken1,
+    output logic        dbg_jump_taken,
+    output logic        dbg_jump_taken1,
+    output logic [31:0] dbg_jump_target,
+    output logic [31:0] dbg_jump_target1,
     output logic        dbg_stall,
     output logic        dbg_bubble_ex,
     output logic        dbg_fwd_rs1,
@@ -91,8 +95,10 @@ module rv32i_cpu (
   logic [31:0] op1_e1, op2_e1;
   logic [31:0] alu_result_e0, alu_result_e1;
   logic [31:0] branch_target_e, branch_target_e1;
+  logic [31:0] jump_target_e, jump_target_e1;
   logic branch_cond_e, branch_cond_e1;
   logic branch_taken_e, branch_taken_e1;
+  logic jump_taken_e, jump_taken_e1;
   logic [31:0] load_data_e0, load_data_e1;
   logic [31:0] wb_data_e0, wb_data_e1;
 
@@ -126,7 +132,6 @@ module rv32i_cpu (
       .we1      (de1_ctrl.reg_write &&
                  !de1_ctrl.mem_write &&
                  !de1_ctrl.branch &&
-                 !de1_ctrl.jump &&
                  !de1_ctrl.is_lui &&
                  !de1_ctrl.is_auipc),
       .waddr1   (de1_rd),
@@ -275,8 +280,8 @@ module rv32i_cpu (
       pc_f  <= pc_next;
       fd_pc <= pc_f;
       // flush both fetched instructions on branch taken
-      fd_instr  <= branch_taken_any ? NOP : instr0_f;
-      fd_instr1 <= branch_taken_any ? NOP : instr1_f;
+      fd_instr  <= redirect_taken_any ? NOP : instr0_f;
+      fd_instr1 <= redirect_taken_any ? NOP : instr1_f;
     end
   end
 
@@ -306,7 +311,7 @@ module rv32i_cpu (
       de1_rs1_val <= 32'h0;
       de1_rs2_val <= 32'h0;
       de1_imm     <= 32'h0;
-    end else if (branch_taken_any) begin
+    end else if (redirect_taken_any) begin
       // Flush decode stage when a branch resolves taken in execute
       de_pc      <= 32'h0;
       de_instr   <= NOP;
@@ -432,20 +437,21 @@ module rv32i_cpu (
       .take_branch(branch_cmp0)
   );
   assign branch_cond_e = de_ctrl.branch ? branch_cmp0 : 1'b0;
+  assign branch_target_e = de_pc + de_imm;
 
   always_comb begin
-    if (de_ctrl.jump && (de_instr[6:0] == 7'b1100111)) begin
-      // JALR target needs LSB cleared
-      branch_target_e = (de_rs1_val + de_imm) & ~32'h1;
+    if (de_ctrl.is_jalr) begin
+      jump_target_e = (de_rs1_val + de_imm) & ~32'h1;
     end else begin
-      branch_target_e = de_pc + de_imm;
+      jump_target_e = de_pc + de_imm;
     end
   end
 
   assign branch_taken_e = (de_instr != NOP) &&
-                          ((de_ctrl.branch && branch_cond_e) || de_ctrl.jump);
+                          (de_ctrl.branch && branch_cond_e);
+  assign jump_taken_e   = (de_instr != NOP) && de_ctrl.jump;
 
-  // Slot1 branch handling (no jump support in slot1)
+  // Slot1 branch handling (now with jump support)
   branch_unit u_branch1 (
       .rs1_val    (de1_rs1_val),
       .rs2_val    (de1_rs2_val),
@@ -454,15 +460,34 @@ module rv32i_cpu (
   );
   assign branch_cond_e1  = de1_ctrl.branch ? branch_cmp1 : 1'b0;
   assign branch_target_e1 = de1_pc + de1_imm;
+
+  always_comb begin
+    if (de1_ctrl.is_jalr) begin
+      jump_target_e1 = (de1_rs1_val + de1_imm) & ~32'h1;
+    end else begin
+      jump_target_e1 = de1_pc + de1_imm;
+    end
+  end
+
   assign branch_taken_e1 = (de1_instr != NOP) &&
                            (de1_ctrl.branch && branch_cond_e1);
+  assign jump_taken_e1   = (de1_instr != NOP) && de1_ctrl.jump;
 
-  // Combined branch resolution priority: slot0 branch/jump wins, else slot1 branch.
-  logic branch_taken_any;
-  logic [31:0] branch_target_any;
-  assign branch_taken_any  = branch_taken_e || branch_taken_e1;
-  assign branch_target_any = branch_taken_e ? branch_target_e :
-                             branch_taken_e1 ? branch_target_e1 : 32'h0;
+  // Combined redirect priority: slot0 (branch/jump) first, then slot1.
+  logic redirect_taken0, redirect_taken1;
+  logic [31:0] redirect_target0, redirect_target1;
+  logic redirect_taken_any;
+  logic [31:0] redirect_target_any;
+
+  assign redirect_taken0  = branch_taken_e || jump_taken_e;
+  assign redirect_target0 = jump_taken_e ? jump_target_e : branch_target_e;
+
+  assign redirect_taken1  = branch_taken_e1 || jump_taken_e1;
+  assign redirect_target1 = jump_taken_e1 ? jump_target_e1 : branch_target_e1;
+
+  assign redirect_taken_any  = redirect_taken0 || redirect_taken1;
+  assign redirect_target_any = redirect_taken0 ? redirect_target0 :
+                               redirect_taken1 ? redirect_target1 : 32'h0;
 
   // Data memory interface (single port, slot0 priority)
   logic [31:0] addr_e0;
@@ -610,8 +635,8 @@ module rv32i_cpu (
 
   // Next PC: branch target wins (slot0 priority, then slot1), otherwise advance
   // by 4 or 8 depending on whether slot1 issued in this cycle.
-  assign pc_next = branch_taken_any ? branch_target_any
-                                    : (issue_slot1 ? pc_plus8_f : pc_plus4_f);
+  assign pc_next = redirect_taken_any ? redirect_target_any
+                                      : (issue_slot1 ? pc_plus8_f : pc_plus4_f);
 
   // Debug/trace
   assign dbg_pc_f         = pc_f;
@@ -623,6 +648,10 @@ module rv32i_cpu (
   assign dbg_result_e1    = wb_data_e1;
   assign dbg_branch_taken = branch_taken_e;
   assign dbg_branch_taken1= branch_taken_e1;
+  assign dbg_jump_taken   = jump_taken_e;
+  assign dbg_jump_taken1  = jump_taken_e1;
+  assign dbg_jump_target  = jump_target_e;
+  assign dbg_jump_target1 = jump_target_e1;
   // Stage-2/2.5 debug indicators
   assign dbg_stall        = stall_if_id;
   assign dbg_bubble_ex    = bubble_ex;

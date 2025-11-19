@@ -54,6 +54,7 @@ module issue_unit (
   // Local signals for hazard computation
   logic mem0, mem1;
   logic branch0, branch1;
+  logic jump0, jump1;
   logic write0, write1;
   logic rs1_0_valid, rs2_0_valid;
   logic rs1_1_valid, rs2_1_valid;
@@ -61,7 +62,8 @@ module issue_unit (
   logic load_use0;
   logic raw10, waw10, war10, load_use_same_cycle;
   logic sb_raw1, sb_waw1, sb_load_use1;
-  logic mem_conflict, branch1_conflict;
+  logic mem_conflict;
+  logic slot0_ctrl_flow;
   logic hazard1;
 
   always_comb begin
@@ -72,8 +74,10 @@ module issue_unit (
 
     mem0    = ctrl0.mem_read  || ctrl0.mem_write;
     mem1    = ctrl1.mem_read  || ctrl1.mem_write;
-    branch0 = ctrl0.branch    || ctrl0.jump;
-    branch1 = ctrl1.branch    || ctrl1.jump;
+    branch0 = ctrl0.branch;
+    branch1 = ctrl1.branch;
+    jump0   = ctrl0.jump;
+    jump1   = ctrl1.jump;
 
     write0 = ctrl0.reg_write && (rd_0 != 5'd0);
     write1 = ctrl1.reg_write && (rd_1 != 5'd0);
@@ -138,11 +142,8 @@ module issue_unit (
       sb_load_use1 = 1'b1;
     end
 
-    // Structural hazards:
-    // - Only one memory op per cycle (slot0 has priority)
-    // - Only slot0 may be branch/jump; slot1 branch allowed only if slot0 is not branch/jump
-    mem_conflict     = mem0 && mem1;
-    branch1_conflict = branch1 && (branch0 || ctrl0.jump);
+    // Structural hazard: single memory port (slot0 priority)
+    mem_conflict = mem0 && mem1;
 
     // SYSTEM in slot1 must never be blocked; allow it to issue regardless of
     // other hazards (so it can reach execute and halt).
@@ -154,21 +155,27 @@ module issue_unit (
       hazard1 = raw10 || waw10 || war10 ||
                 load_use_same_cycle ||
                 sb_raw1 || sb_waw1 || sb_load_use1 ||
-                mem_conflict || branch1_conflict;
+                mem_conflict;
 
-      // Restrict slot1: allow ALU, LOAD, STORE, and BRANCH; forbid jump/LUI/AUIPC.
-      // Stores are allowed only when no conflicts/hazards remain.
-      if (write1 &&
-          (ctrl1.jump ||
-           ctrl1.is_lui ||
-           ctrl1.is_auipc)) begin
+      // Restrict slot1 reg writers: LUI/AUIPC still forbidden.
+      if (write1 && (ctrl1.is_lui || ctrl1.is_auipc)) begin
         hazard1 = 1'b1;
       end
 
-      // If slot1 is a branch, ensure no mem ops in slot1 and slot0 not branch/jump.
+      // Slot0 control flow (branch/jump) blocks slot1 control flow.
+      slot0_ctrl_flow = branch0 || jump0;
+
+      // If slot1 is a branch, ensure slot0 not branch/jump and slot1 not using mem.
       if (branch1) begin
+        if (slot0_ctrl_flow) hazard1 = 1'b1;
         if (mem1) hazard1 = 1'b1;
-        if (branch1_conflict) hazard1 = 1'b1;
+      end
+
+      // Slot1 jumps (jal/jalr) obey same hazards as branches.
+      if (jump1) begin
+        if (slot0_ctrl_flow) hazard1 = 1'b1;
+        if (mem1) hazard1 = 1'b1;
+        if (ctrl1.is_lui || ctrl1.is_auipc) hazard1 = 1'b1;
       end
 
       // If slot1 is a load, ensure slot0 is not a memory op (mem_conflict already caught)

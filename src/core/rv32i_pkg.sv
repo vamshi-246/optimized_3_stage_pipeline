@@ -58,6 +58,9 @@ package rv32i_pkg;
     branch_t   branch_type;
     logic      branch;
     logic      jump;
+    logic      is_jump;      // semantic jump (jal/jalr)
+    logic      is_jal;
+    logic      is_jalr;
     logic      mem_read;
     logic      mem_write;
     logic [2:0] mem_funct3;  // loads/stores size + sign

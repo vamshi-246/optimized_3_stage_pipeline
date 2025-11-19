@@ -1,0 +1,30 @@
+--- Program (from hex) ---
+    Addr |    Instr | Disassembly
+----------------------------------------
+00000000 | 00100513 | addi x10, x0, 1
+00000004 | 004005ef | jal x11, 4
+00000008 | 00200613 | addi x12, x0, 2
+0000000c | 00300693 | addi x13, x0, 3
+00000010 | 00100073 | system
+
+=== Pipeline Report ===
+Trace file      : sim\pipeline_trace.log
+Program hex     : tests\slot1_jump_C.hex
+Total cycles    : 6
+Instructions    : 3
+CPI / IPC       : 2.000 / 0.500
+Branches taken  : 0
+Potential RAW hazards (decode vs prev execute): 0
+Stall cycles (load-use)   : 0
+Cycles with forwarding    : 0
+Average busy registers    : 0.83
+
+--- Timeline ---
+Cycle |     PC_F | Fetch                    | Decode                   | Execute                  | Exec1                    | Notes
+------------------------------------------------------------------------------------------------------------------------------------
+    0 | 00000004 | jal x11, 4               | addi x10, x0, 1          | nop                      | nop                      | 
+    1 | 0000000c | addi x13, x0, 3          | jal x11, 4               | addi x10, x0, 1          | jal x11, 4               | jump1->0x00000008;busy=0x00000c00
+    2 | 00000008 | addi x12, x0, 2          | nop                      | nop                      | nop                      | 
+    3 | 0000000c | addi x13, x0, 3          | addi x12, x0, 2          | nop                      | nop                      | 
+    4 | 00000014 | nop                      | addi x13, x0, 3          | addi x12, x0, 2          | addi x13, x0, 3          | busy=0x00003000
+    5 | 0000001c | nop                      | nop                      | addi x13, x0, 3          | system                   | busy=0x00002000
