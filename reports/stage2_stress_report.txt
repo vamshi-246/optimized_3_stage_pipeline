@@ -14,14 +14,14 @@
 === Pipeline Report ===
 Trace file      : sim\pipeline_trace.log
 Program hex     : tests\stage2_stress.hex
-Total cycles    : 8
-Instructions    : 7
-CPI / IPC       : 1.143 / 0.875
-Branches taken  : 0
-Potential RAW hazards (decode vs prev execute): 3
+Total cycles    : 5
+Instructions    : 4
+CPI / IPC       : 1.250 / 0.800
+Branches taken  : 1
+Potential RAW hazards (decode vs prev execute): 2
 Stall cycles (load-use)   : 0
-Cycles with forwarding    : 4
-Average busy registers    : 0.88
+Cycles with forwarding    : 3
+Average busy registers    : 0.80
 
 --- Timeline ---
 Cycle |     PC_F | Fetch                    | Decode                   | Execute                  | Exec1                    | Notes
@@ -30,7 +30,4 @@ Cycle |     PC_F | Fetch                    | Decode                   | Execute
     1 | 00000008 | add x3, x2, x1           | add x2, x1, x1           | addi x1, x0, 5           | nop                      | FWD_RS1;FWD_RS2;busy=0x00000002
     2 | 0000000c | beq x2, x3, 4            | add x3, x2, x1           | add x2, x1, x1           | nop                      | FWD_RS1;busy=0x00000004
     3 | 00000010 | lw x1, 0(x2)             | beq x2, x3, 4            | add x3, x2, x1           | nop                      | FWD_RS2;busy=0x00000008
-    4 | 00000018 | add x6, x5, x3           | lw x1, 0(x2)             | beq x2, x3, 4            | lw x1, 0(x2)             | busy=0x00000002
-    5 | 0000001c | addi x7, x6, 1           | add x6, x5, x3           | lw x1, 0(x2)             | nop                      | busy=0x00000002
-    6 | 00000020 | system                   | addi x7, x6, 1           | add x6, x5, x3           | nop                      | FWD_RS1;busy=0x00000040
-    7 | 00000028 | nop                      | system                   | addi x7, x6, 1           | system                   | busy=0x00000080
+    4 | 00000018 | add x6, x5, x3           | lw x1, 0(x2)             | beq x2, x3, 4            | lw x1, 0(x2)             | branch_taken;busy=0x00000002

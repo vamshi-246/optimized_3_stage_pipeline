@@ -1,0 +1,27 @@
+--- Program (from hex) ---
+    Addr |    Instr | Disassembly
+----------------------------------------
+00000000 | 00000463 | beq x0, x0, 8
+00000004 | 00000463 | beq x0, x0, 8
+00000008 | 00100073 | system
+
+=== Pipeline Report ===
+Trace file      : sim\pipeline_trace.log
+Program hex     : tests\slot1_branch_C.hex
+Total cycles    : 5
+Instructions    : 2
+CPI / IPC       : 2.500 / 0.400
+Branches taken  : 1
+Potential RAW hazards (decode vs prev execute): 0
+Stall cycles (load-use)   : 0
+Cycles with forwarding    : 0
+Average busy registers    : 0.00
+
+--- Timeline ---
+Cycle |     PC_F | Fetch                    | Decode                   | Execute                  | Exec1                    | Notes
+------------------------------------------------------------------------------------------------------------------------------------
+    0 | 00000004 | beq x0, x0, 8            | beq x0, x0, 8            | nop                      | nop                      | 
+    1 | 00000008 | system                   | beq x0, x0, 8            | beq x0, x0, 8            | nop                      | branch_taken
+    2 | 00000008 | system                   | nop                      | nop                      | nop                      | 
+    3 | 0000000c | nop                      | system                   | nop                      | nop                      | 
+    4 | 00000014 | nop                      | nop                      | system                   | nop                      | 

@@ -140,9 +140,9 @@ module issue_unit (
 
     // Structural hazards:
     // - Only one memory op per cycle (slot0 has priority)
-    // - Only slot0 may be branch/jump
+    // - Only slot0 may be branch/jump; slot1 branch allowed only if slot0 is not branch/jump
     mem_conflict     = mem0 && mem1;
-    branch1_conflict = branch1; // younger slot cannot be a branch
+    branch1_conflict = branch1 && (branch0 || ctrl0.jump);
 
     // SYSTEM in slot1 must never be blocked; allow it to issue regardless of
     // other hazards (so it can reach execute and halt).
@@ -156,14 +156,19 @@ module issue_unit (
                 sb_raw1 || sb_waw1 || sb_load_use1 ||
                 mem_conflict || branch1_conflict;
 
-      // Restrict slot1: allow ALU, LOAD, STORE; forbid branch/jump/LUI/AUIPC.
+      // Restrict slot1: allow ALU, LOAD, STORE, and BRANCH; forbid jump/LUI/AUIPC.
       // Stores are allowed only when no conflicts/hazards remain.
       if (write1 &&
-          (branch1 ||
-           ctrl1.jump ||
+          (ctrl1.jump ||
            ctrl1.is_lui ||
            ctrl1.is_auipc)) begin
         hazard1 = 1'b1;
+      end
+
+      // If slot1 is a branch, ensure no mem ops in slot1 and slot0 not branch/jump.
+      if (branch1) begin
+        if (mem1) hazard1 = 1'b1;
+        if (branch1_conflict) hazard1 = 1'b1;
       end
 
       // If slot1 is a load, ensure slot0 is not a memory op (mem_conflict already caught)

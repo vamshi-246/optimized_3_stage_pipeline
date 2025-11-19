@@ -30,6 +30,7 @@ class TraceEntry:
     result_execute1: int
     stall: str
     branch_taken: bool
+    branch_taken1: bool
     stall_flag: bool
     bubble: bool
     fwd_rs1: bool
@@ -98,6 +99,7 @@ def parse_trace(path: Path) -> List[TraceEntry]:
                     result_execute1=safe_hex(row.get("result_execute1", "0"), 0),
                     stall=stall_str,
                     branch_taken=row.get("branch_taken", "0") not in ("0", "false", "False"),
+                    branch_taken1=row.get("branch_taken1", "0") not in ("0", "false", "False"),
                     stall_flag=row.get("stall_flag", "0") not in ("0", "false", "False", "", None),
                     bubble=row.get("bubble", "0") not in ("0", "false", "False", "", None),
                     fwd_rs1=row.get("forward_rs1", "0") not in ("0", "false", "False", "", None),
@@ -254,6 +256,8 @@ def print_timeline(entries: List[TraceEntry], prog: Dict[int, int], emit) -> Non
         note_parts = []
         if e.branch_taken:
             note_parts.append("branch_taken")
+        if e.branch_taken1:
+            note_parts.append("branch1_taken")
         if e.stall_flag:
             note_parts.append("STALL(load-use)")
         if e.fwd_rs1:

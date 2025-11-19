@@ -1,18 +1,18 @@
 --- Program (from hex) ---
     Addr |    Instr | Disassembly
 ----------------------------------------
-00000000 | 00800093 | addi x1, x0, 8
-00000004 | 0020a023 | sw x2, 0(x1)
+00000000 | 00500113 | addi x2, x0, 5
+00000004 | 00202023 | sw x2, 0(x0)
 00000008 | 00100073 | system
 
 === Pipeline Report ===
 Trace file      : sim\pipeline_trace.log
-Program hex     : tests\slot1_store_A.hex
+Program hex     : tests\slot1_store_B.hex
 Total cycles    : 3
 Instructions    : 2
 CPI / IPC       : 1.500 / 0.667
 Branches taken  : 0
-Potential RAW hazards (decode vs prev execute): 1
+Potential RAW hazards (decode vs prev execute): 0
 Stall cycles (load-use)   : 0
 Cycles with forwarding    : 1
 Average busy registers    : 0.33
@@ -20,6 +20,6 @@ Average busy registers    : 0.33
 --- Timeline ---
 Cycle |     PC_F | Fetch                    | Decode                   | Execute                  | Exec1                    | Notes
 ------------------------------------------------------------------------------------------------------------------------------------
-    0 | 00000004 | sw x2, 0(x1)             | addi x1, x0, 8           | nop                      | nop                      | 
-    1 | 00000008 | system                   | sw x2, 0(x1)             | addi x1, x0, 8           | nop                      | FWD_RS1;busy=0x00000002
-    2 | 00000010 | nop                      | system                   | sw x2, 0(x1)             | system                   | 
+    0 | 00000004 | sw x2, 0(x0)             | addi x2, x0, 5           | nop                      | nop                      | 
+    1 | 00000008 | system                   | sw x2, 0(x0)             | addi x2, x0, 5           | nop                      | FWD_RS2;busy=0x00000004
+    2 | 00000010 | nop                      | system                   | sw x2, 0(x0)             | system                   | 
