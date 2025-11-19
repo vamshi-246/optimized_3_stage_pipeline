@@ -25,7 +25,9 @@ class TraceEntry:
     instr_fetch: int
     instr_decode: int
     instr_execute: int
+    instr_execute1: int
     result_execute: int
+    result_execute1: int
     stall: str
     branch_taken: bool
     stall_flag: bool
@@ -91,7 +93,9 @@ def parse_trace(path: Path) -> List[TraceEntry]:
                     instr_fetch=safe_hex(row["instr_fetch"], 0),
                     instr_decode=safe_hex(row["instr_decode"], 0),
                     instr_execute=safe_hex(row["instr_execute"], 0),
+                    instr_execute1=safe_hex(row.get("instr_execute1", "0"), 0),
                     result_execute=safe_hex(row["result_execute"], 0),
+                    result_execute1=safe_hex(row.get("result_execute1", "0"), 0),
                     stall=stall_str,
                     branch_taken=row.get("branch_taken", "0") not in ("0", "false", "False"),
                     stall_flag=row.get("stall_flag", "0") not in ("0", "false", "False", "", None),
@@ -243,7 +247,7 @@ def compute_hazards(entries: List[TraceEntry]) -> int:
 
 
 def print_timeline(entries: List[TraceEntry], prog: Dict[int, int], emit) -> None:
-    header = f"{'Cycle':>5} | {'PC_F':>8} | {'Fetch':<24} | {'Decode':<24} | {'Execute':<24} | Notes"
+    header = f"{'Cycle':>5} | {'PC_F':>8} | {'Fetch':<24} | {'Decode':<24} | {'Execute':<24} | {'Exec1':<24} | Notes"
     emit(header)
     emit("-" * len(header))
     for e in entries:
@@ -261,7 +265,8 @@ def print_timeline(entries: List[TraceEntry], prog: Dict[int, int], emit) -> Non
         note = ";".join(note_parts)
         emit(
             f"{e.cycle:5d} | {e.pc_f:08x} | {disasm(e.instr_fetch):<24} | "
-            f"{disasm(e.instr_decode):<24} | {disasm(e.instr_execute):<24} | {note}"
+            f"{disasm(e.instr_decode):<24} | {disasm(e.instr_execute):<24} | "
+            f"{disasm(e.instr_execute1):<24} | {note}"
         )
 
 

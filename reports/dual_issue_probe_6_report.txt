@@ -18,8 +18,8 @@ Cycles with forwarding    : 1
 Average busy registers    : 0.33
 
 --- Timeline ---
-Cycle |     PC_F | Fetch                    | Decode                   | Execute                  | Notes
----------------------------------------------------------------------------------------------------------
-    0 | 00000004 | sw x2, 0(x0)             | addi x2, x0, 4           | nop                      | 
-    1 | 00000008 | system                   | sw x2, 0(x0)             | addi x2, x0, 4           | FWD_RS2;busy=0x00000004
-    2 | 00000010 | nop                      | system                   | sw x2, 0(x0)             | 
+Cycle |     PC_F | Fetch                    | Decode                   | Execute                  | Exec1                    | Notes
+------------------------------------------------------------------------------------------------------------------------------------
+    0 | 00000004 | sw x2, 0(x0)             | addi x2, x0, 4           | nop                      | nop                      | 
+    1 | 00000008 | system                   | sw x2, 0(x0)             | addi x2, x0, 4           | nop                      | FWD_RS2;busy=0x00000004
+    2 | 00000010 | nop                      | system                   | sw x2, 0(x0)             | system                   | 

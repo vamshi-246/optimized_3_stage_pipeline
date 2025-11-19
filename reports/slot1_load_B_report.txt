@@ -1,25 +1,25 @@
 --- Program (from hex) ---
     Addr |    Instr | Disassembly
 ----------------------------------------
-00000000 | 002081b3 | add x3, x1, x2
-00000004 | 00900093 | addi x1, x0, 9
+00000000 | 00000183 | lb x3, 0(x0)
+00000004 | 00000203 | lb x4, 0(x0)
 00000008 | 00100073 | system
 
 === Pipeline Report ===
 Trace file      : sim\pipeline_trace.log
-Program hex     : tests\dual_issue_probe_3.hex
+Program hex     : tests\slot1_load_B.hex
 Total cycles    : 3
 Instructions    : 2
 CPI / IPC       : 1.500 / 0.667
 Branches taken  : 0
 Potential RAW hazards (decode vs prev execute): 0
 Stall cycles (load-use)   : 0
-Cycles with forwarding    : 1
+Cycles with forwarding    : 0
 Average busy registers    : 0.67
 
 --- Timeline ---
 Cycle |     PC_F | Fetch                    | Decode                   | Execute                  | Exec1                    | Notes
 ------------------------------------------------------------------------------------------------------------------------------------
-    0 | 00000004 | addi x1, x0, 9           | add x3, x1, x2           | nop                      | nop                      | 
-    1 | 00000008 | system                   | addi x1, x0, 9           | add x3, x1, x2           | nop                      | busy=0x00000008
-    2 | 00000010 | nop                      | system                   | addi x1, x0, 9           | system                   | FWD_RS2;busy=0x00000002
+    0 | 00000004 | lb x4, 0(x0)             | lb x3, 0(x0)             | nop                      | nop                      | 
+    1 | 00000008 | system                   | lb x4, 0(x0)             | lb x3, 0(x0)             | nop                      | busy=0x00000008
+    2 | 00000010 | nop                      | system                   | lb x4, 0(x0)             | system                   | busy=0x00000010

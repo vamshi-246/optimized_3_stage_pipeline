@@ -29,6 +29,7 @@ module universal_tb;
 
   // Debug tap wires
   logic [31:0] dbg_pc_f, dbg_instr_f, dbg_instr_d, dbg_instr_e, dbg_instr_e1, dbg_result_e;
+  logic [31:0] dbg_result_e1;
   logic        dbg_branch_taken, dbg_stall, dbg_bubble_ex, dbg_fwd_rs1, dbg_fwd_rs2;
   logic [31:0] dbg_busy_vec;
 
@@ -54,6 +55,7 @@ module universal_tb;
       .dbg_instr_e    (dbg_instr_e),
       .dbg_instr_e1   (dbg_instr_e1),
       .dbg_result_e   (dbg_result_e),
+      .dbg_result_e1  (dbg_result_e1),
       .dbg_branch_taken(dbg_branch_taken),
       .dbg_stall      (dbg_stall),
       .dbg_bubble_ex  (dbg_bubble_ex),
@@ -120,7 +122,7 @@ module universal_tb;
   // Trace logging
   initial begin
     trace_fd = $fopen("sim/pipeline_trace.log", "w");
-    $fwrite(trace_fd, "cycle,pc_f,instr_fetch,instr_decode,instr_execute,result_execute,stall,branch_taken,stall_flag,bubble,forward_rs1,forward_rs2,busy_vec\n");
+    $fwrite(trace_fd, "cycle,pc_f,instr_fetch,instr_decode,instr_execute,instr_execute1,result_execute,result_execute1,stall,branch_taken,stall_flag,bubble,forward_rs1,forward_rs2,busy_vec\n");
   end
 
   // Cycle-by-cycle tracing and stop conditions
@@ -129,13 +131,15 @@ module universal_tb;
       cycle_count <= 0;
     end else begin
 	      cycle_count <= cycle_count + 1;
-      $fwrite(trace_fd, "%0d,%08x,%08x,%08x,%08x,%08x,%s,%0d,%0d,%0d,%0d,%0d,%08x\n",
+      $fwrite(trace_fd, "%0d,%08x,%08x,%08x,%08x,%08x,%08x,%08x,%s,%0d,%0d,%0d,%0d,%0d,%08x\n",
               cycle_count,
               dbg_pc_f,
               dbg_instr_f,
               dbg_instr_d,
               dbg_instr_e,
+              dbg_instr_e1,
               dbg_result_e,
+              dbg_result_e1,
               dbg_stall ? "stall" : "none",
               dbg_branch_taken,
               dbg_stall,

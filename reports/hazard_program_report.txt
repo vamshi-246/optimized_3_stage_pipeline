@@ -1,0 +1,33 @@
+--- Program (from hex) ---
+    Addr |    Instr | Disassembly
+----------------------------------------
+00000000 | 00100093 | addi x1, x0, 1
+00000004 | 00108133 | add x2, x1, x1
+00000008 | 00110263 | beq x2, x1, 4
+0000000c | 00000193 | addi x3, x0, 0
+00000010 | 00012083 | lw x1, 0(x2)
+00000014 | 001082b3 | add x5, x1, x1
+00000018 | 00100073 | system
+
+=== Pipeline Report ===
+Trace file      : sim\pipeline_trace.log
+Program hex     : tests\hazard_program.hex
+Total cycles    : 7
+Instructions    : 5
+CPI / IPC       : 1.400 / 0.714
+Branches taken  : 0
+Potential RAW hazards (decode vs prev execute): 1
+Stall cycles (load-use)   : 1
+Cycles with forwarding    : 2
+Average busy registers    : 0.86
+
+--- Timeline ---
+Cycle |     PC_F | Fetch                    | Decode                   | Execute                  | Exec1                    | Notes
+------------------------------------------------------------------------------------------------------------------------------------
+    0 | 00000004 | add x2, x1, x1           | addi x1, x0, 1           | nop                      | nop                      | 
+    1 | 00000008 | beq x2, x1, 4            | add x2, x1, x1           | addi x1, x0, 1           | nop                      | FWD_RS1;FWD_RS2;busy=0x00000002
+    2 | 0000000c | addi x3, x0, 0           | beq x2, x1, 4            | add x2, x1, x1           | nop                      | FWD_RS1;busy=0x00000004
+    3 | 00000014 | add x5, x1, x1           | addi x3, x0, 0           | beq x2, x1, 4            | addi x3, x0, 0           | busy=0x00000008
+    4 | 0000001c | nop                      | add x5, x1, x1           | addi x3, x0, 0           | lw x1, 0(x2)             | STALL(load-use);busy=0x0000000a
+    5 | 0000001c | nop                      | add x5, x1, x1           | nop                      | nop                      | 
+    6 | 00000024 | nop                      | nop                      | add x5, x1, x1           | system                   | busy=0x00000020

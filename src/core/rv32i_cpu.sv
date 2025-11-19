@@ -25,6 +25,7 @@ module rv32i_cpu (
     // Slot1 execute-stage instruction (for debug / system detection in TB)
     output logic [31:0] dbg_instr_e1,
     output logic [31:0] dbg_result_e,
+    output logic [31:0] dbg_result_e1,
     output logic        dbg_branch_taken,
     output logic        dbg_stall,
     output logic        dbg_bubble_ex,
@@ -91,7 +92,7 @@ module rv32i_cpu (
   logic [31:0] branch_target_e;
   logic branch_cond_e;
   logic branch_taken_e;
-  logic [31:0] load_data_e0;
+  logic [31:0] load_data_e0, load_data_e1;
   logic [31:0] wb_data_e0, wb_data_e1;
 
   // Hazard / forwarding controls
@@ -122,7 +123,6 @@ module rv32i_cpu (
       // no LUI/AUIPC). This ensures we only turn on EX1 execution for the safe
       // subset requested for this step.
       .we1      (de1_ctrl.reg_write &&
-                 !de1_ctrl.mem_read &&
                  !de1_ctrl.mem_write &&
                  !de1_ctrl.branch &&
                  !de1_ctrl.jump &&
@@ -184,7 +184,7 @@ module rv32i_cpu (
       .is_load0_ex        (is_load_ex),
       .rd1_write_en_ex    (de1_ctrl.reg_write),
       .rd1_ex             (de1_rd),
-      .is_load1_ex        (1'b0), // slot1 loads still disabled in this step
+      .is_load1_ex        (de1_ctrl.mem_read && !de1_ctrl.mem_write),
       .rs1_id             (rs1_d),
       .rs2_id             (rs2_d),
       .use_rs1_id         (use_rs1_d),
@@ -246,7 +246,7 @@ module rv32i_cpu (
       // EX1 info (slot1 loads are still disabled, so is_load_ex1 is 0)
       .rd_ex1        (de1_rd),
       .reg_write_ex1 (de1_ctrl.reg_write),
-      .is_load_ex1   (1'b0),
+      .is_load_ex1   (de1_ctrl.mem_read && !de1_ctrl.mem_write),
       .ex1_result    (wb_data_e1),
       // Outputs
       .fwd_rs1_0     (rs1_val_d_fwd),
@@ -432,14 +432,24 @@ module rv32i_cpu (
     end
   end
 
-  assign branch_taken_e = (de_ctrl.branch && branch_cond_e) || de_ctrl.jump;
+  logic branch_taken_pre;
+  logic branch_en;
+  logic branch_cond_safe;
+  assign branch_en        = (de_ctrl.branch === 1'b1);
+  assign branch_cond_safe = (branch_cond_e === 1'b1) ? 1'b1 : 1'b0;
+  assign branch_taken_pre = (branch_en && branch_cond_safe) || (de_ctrl.jump === 1'b1);
+  assign branch_taken_e   = (de_instr == NOP) ? 1'b0 : branch_taken_pre;
 
   // Data memory interface (single port, driven by slot0 only)
   logic [31:0] addr_e0;
+  logic [31:0] addr_e1;
   logic [3:0]  be_e;
   logic [31:0] wdata_e;
+  logic        use_mem0;
+  logic        use_mem1;
 
   assign addr_e0 = de_rs1_val + de_imm;
+  assign addr_e1 = de1_rs1_val + de1_imm;
 
   always_comb begin
     // Default store parameters
@@ -464,7 +474,17 @@ module rv32i_cpu (
     end
   end
 
-  // Load data sign/zero extension
+  // Memory port arbitration: slot0 owns the port unless idle; slot1 load
+  // may borrow the port only when slot0 is not doing memory.
+  assign use_mem0 = de_ctrl.mem_read || de_ctrl.mem_write;
+  assign use_mem1 = (!use_mem0) && de1_ctrl.mem_read && !de1_ctrl.mem_write;
+
+  assign data_addr  = use_mem0 ? addr_e0 : use_mem1 ? addr_e1 : 32'h0;
+  assign data_wdata = wdata_e;
+  assign data_we    = de_ctrl.mem_write ? be_e : 4'b0000;
+  assign data_re    = de_ctrl.mem_read || use_mem1;
+
+  // Load data sign/zero extension for slot0
   always_comb begin
     load_data_e0 = data_rdata;
     unique case (de_ctrl.mem_funct3)
@@ -492,6 +512,34 @@ module rv32i_cpu (
     endcase
   end
 
+  // Load data sign/zero extension for slot1 (reuses shared data_rdata)
+  always_comb begin
+    load_data_e1 = data_rdata;
+    unique case (de1_ctrl.mem_funct3)
+      3'b000: begin // LB
+        logic [7:0] b1;
+        b1 = data_rdata >> (8 * addr_e1[1:0]);
+        load_data_e1 = {{24{b1[7]}}, b1};
+      end
+      3'b100: begin // LBU
+        logic [7:0] b1;
+        b1 = data_rdata >> (8 * addr_e1[1:0]);
+        load_data_e1 = {24'h0, b1};
+      end
+      3'b001: begin // LH
+        logic [15:0] h1;
+        h1 = data_rdata >> (16 * addr_e1[1]);
+        load_data_e1 = {{16{h1[15]}}, h1};
+      end
+      3'b101: begin // LHU
+        logic [15:0] h1;
+        h1 = data_rdata >> (16 * addr_e1[1]);
+        load_data_e1 = {16'h0, h1};
+      end
+      default: load_data_e1 = data_rdata; // LW and default
+    endcase
+  end
+
   // Write-back selection for slot0 and slot1
   always_comb begin
     unique case (de_ctrl.wb_sel)
@@ -502,18 +550,12 @@ module rv32i_cpu (
     endcase
 
     unique case (de1_ctrl.wb_sel)
-      WB_MEM: wb_data_e1 = 32'h0;          // slot1 cannot access memory yet
+      WB_MEM: wb_data_e1 = load_data_e1;   // slot1 load uses shared data port
       WB_PC4: wb_data_e1 = de1_pc + 32'd4;
       WB_IMM: wb_data_e1 = de1_imm;
       default: wb_data_e1 = alu_result_e1;
     endcase
   end
-
-  // Output assignments
-  assign data_addr  = addr_e0;
-  assign data_wdata = wdata_e;
-  assign data_we    = de_ctrl.mem_write ? be_e : 4'b0000;
-  assign data_re    = de_ctrl.mem_read;
 
   // Next PC: branch target wins, otherwise advance by 4 or 8 depending on
   // whether slot1 issued in this cycle.
@@ -527,6 +569,7 @@ module rv32i_cpu (
   assign dbg_instr_e      = de_instr;
   assign dbg_instr_e1     = de1_instr;
   assign dbg_result_e     = wb_data_e0;
+  assign dbg_result_e1    = wb_data_e1;
   assign dbg_branch_taken = branch_taken_e;
   // Stage-2/2.5 debug indicators
   assign dbg_stall        = stall_if_id;
