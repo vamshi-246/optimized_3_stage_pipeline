@@ -8,10 +8,10 @@
 
 === Pipeline Report ===
 Trace file      : sim\pipeline_trace.log
-Program hex     : tests\slot1_load_D.hex
+Program hex     : C:\VAMSHI\IIT Mandi Academic Folder\IITM 5th Sem\Computer Organisation and Architecture\ICARUS\tests\slot1_load_D.hex
 Total cycles    : 5
-Instructions    : 3
-CPI / IPC       : 1.667 / 0.600
+Instructions    : 4
+CPI / IPC       : 1.250 / 0.800
 Branches taken  : 0
 Potential RAW hazards (decode vs prev execute): 2
 Stall cycles (load-use)   : 1
@@ -19,10 +19,10 @@ Cycles with forwarding    : 1
 Average busy registers    : 0.60
 
 --- Timeline ---
-Cycle |     PC_F | Fetch                    | Decode                   | Execute                  | Exec1                    | Notes
-------------------------------------------------------------------------------------------------------------------------------------
-    0 | 00000004 | lw x2, 0(x1)             | addi x1, x0, 4           | nop                      | nop                      | 
-    1 | 00000008 | addi x3, x2, 1           | lw x2, 0(x1)             | addi x1, x0, 4           | nop                      | FWD_RS1;busy=0x00000002
-    2 | 0000000c | system                   | addi x3, x2, 1           | lw x2, 0(x1)             | nop                      | STALL(load-use);busy=0x00000004
-    3 | 0000000c | system                   | addi x3, x2, 1           | nop                      | nop                      | 
-    4 | 00000014 | nop                      | system                   | addi x3, x2, 1           | system                   | busy=0x00000008
+Cycle |     PC_F | F0                 | F1                 | D0[i0]                 | D1[i1]                 | E0/R0                      | E1/R1                      | Notes
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+    0 | 00000004 | lw x2, 0(x1)       | addi x3, x2, 1     | addi x1, x0, 4     i0=1 | lw x2, 0(x1)       i1=0 | nop          00000000 | nop          00000000 | 
+    1 | 00000008 | addi x3, x2, 1     | system             | lw x2, 0(x1)       i0=1 | addi x3, x2, 1     i1=0 | addi x1, x0, 4 00000000 | nop          00000000 | F0_RS1;F1_RS2=EX0;busy=0x00000002
+    2 | 0000000c | system             | nop                | addi x3, x2, 1     i0=0 | system             i1=0 | lw x2, 0(x1) 00000000 | nop          00000000 | MEM0(R)@0x00000000;STALL(load-use);busy=0x00000004;ldpend=0x00000004
+    3 | 0000000c | system             | nop                | addi x3, x2, 1     i0=1 | system             i1=1 | nop          00000000 | nop          00000000 | 
+    4 | 00000014 | nop                | nop                | system             i0=1 | nop                i1=1 | addi x3, x2, 1 00000000 | system       00000000 | busy=0x00000008;HALT1

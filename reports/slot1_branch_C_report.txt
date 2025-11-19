@@ -7,7 +7,7 @@
 
 === Pipeline Report ===
 Trace file      : sim\pipeline_trace.log
-Program hex     : tests\slot1_branch_C.hex
+Program hex     : C:\VAMSHI\IIT Mandi Academic Folder\IITM 5th Sem\Computer Organisation and Architecture\ICARUS\tests\slot1_branch_C.hex
 Total cycles    : 5
 Instructions    : 2
 CPI / IPC       : 2.500 / 0.400
@@ -18,10 +18,10 @@ Cycles with forwarding    : 0
 Average busy registers    : 0.00
 
 --- Timeline ---
-Cycle |     PC_F | Fetch                    | Decode                   | Execute                  | Exec1                    | Notes
-------------------------------------------------------------------------------------------------------------------------------------
-    0 | 00000004 | beq x0, x0, 8            | beq x0, x0, 8            | nop                      | nop                      | 
-    1 | 00000008 | system                   | beq x0, x0, 8            | beq x0, x0, 8            | nop                      | branch_taken
-    2 | 00000008 | system                   | nop                      | nop                      | nop                      | 
-    3 | 0000000c | nop                      | system                   | nop                      | nop                      | 
-    4 | 00000014 | nop                      | nop                      | system                   | nop                      | 
+Cycle |     PC_F | F0                 | F1                 | D0[i0]                 | D1[i1]                 | E0/R0                      | E1/R1                      | Notes
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+    0 | 00000004 | beq x0, x0, 8      | system             | beq x0, x0, 8      i0=1 | beq x0, x0, 8      i1=0 | nop          00000000 | nop          00000000 | 
+    1 | 00000008 | system             | nop                | beq x0, x0, 8      i0=1 | system             i1=1 | beq x0, x0, 8 00000000 | nop          00000000 | BR0->0x00000008
+    2 | 00000008 | system             | nop                | nop                i0=1 | nop                i1=0 | nop          00000000 | nop          00000000 | 
+    3 | 0000000c | nop                | nop                | system             i0=1 | nop                i1=1 | nop          00000000 | nop          00000000 | 
+    4 | 00000014 | nop                | nop                | nop                i0=1 | nop                i1=1 | system       00000000 | nop          00000000 | HALT0

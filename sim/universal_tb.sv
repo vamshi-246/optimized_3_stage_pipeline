@@ -28,11 +28,30 @@ module universal_tb;
   integer trace_fd;
 
   // Debug tap wires
-  logic [31:0] dbg_pc_f, dbg_instr_f, dbg_instr_d, dbg_instr_e, dbg_instr_e1, dbg_result_e, dbg_result_e1;
+  logic [31:0] dbg_pc_f;
+  logic [31:0] dbg_instr_f;
+  logic [31:0] dbg_instr_d;
+  logic [31:0] dbg_instr_e, dbg_instr_e1;
+  logic [31:0] dbg_result_e, dbg_result_e1;
   logic        dbg_branch_taken, dbg_branch_taken1, dbg_jump_taken, dbg_jump_taken1;
   logic [31:0] dbg_jump_target, dbg_jump_target1;
   logic        dbg_stall, dbg_bubble_ex, dbg_fwd_rs1, dbg_fwd_rs2;
   logic [31:0] dbg_busy_vec;
+
+  // Local debug-only helpers for forwarding source classification
+  integer fwd_rs1_1_src;
+  integer fwd_rs2_1_src;
+  logic   is_load_ex0;
+  logic   is_load_ex1;
+
+  // Simple helper: print 32-bit value as hex, or "xx" if any bit is X/Z.
+  function string fmt_hex(input logic [31:0] v);
+    if ($isunknown(v)) begin
+      fmt_hex = "xx";
+    end else begin
+      fmt_hex = $sformatf("%08x", v);
+    end
+  endfunction
 
   // Clock generation: 10ns period
   always #5 clk = ~clk;
@@ -128,7 +147,8 @@ module universal_tb;
   // Trace logging
   initial begin
     trace_fd = $fopen("sim/pipeline_trace.log", "w");
-    $fwrite(trace_fd, "cycle,pc_f,instr_fetch,instr_decode,instr_execute,instr_execute1,result_execute,result_execute1,stall,branch_taken,branch_taken1,jump_taken,jump_taken1,jump_target,jump_target1,stall_flag,bubble,forward_rs1,forward_rs2,busy_vec\n");
+    $fwrite(trace_fd,
+            "cycle,pc_f,fetch0,fetch1,decode0,decode1,issue0,issue1,exec0,exec1,result0,result1,branch_taken0,branch_taken1,jump_taken0,jump_taken1,branch_target0,branch_target1,jump_target0,jump_target1,mem0_re,mem0_we,mem1_re,mem1_we,mem_addr0,mem_addr1,fwd_rs1_0_en,fwd_rs2_0_en,fwd_rs1_1_src,fwd_rs2_1_src,stall_if_id,busy_vec,load_pending_vec\n");
   end
 
   // Cycle-by-cycle tracing and stop conditions
@@ -136,41 +156,87 @@ module universal_tb;
     if (rst) begin
       cycle_count <= 0;
     end else begin
-	      cycle_count <= cycle_count + 1;
-      $fwrite(trace_fd, "%0d,%08x,%08x,%08x,%08x,%08x,%08x,%08x,%s,%0d,%0d,%0d,%0d,%08x,%08x,%0d,%0d,%0d,%0d,%08x\n",
-              cycle_count,
-              dbg_pc_f,
-              dbg_instr_f,
-              dbg_instr_d,
-              dbg_instr_e,
-              dbg_instr_e1,
-              dbg_result_e,
-              dbg_result_e1,
-              dbg_stall ? "stall" : "none",
-              dbg_branch_taken,
-              dbg_branch_taken1,
-              dbg_jump_taken,
-              dbg_jump_taken1,
-              dbg_jump_target,
-              dbg_jump_target1,
-              dbg_stall,
-              dbg_bubble_ex,
-              dbg_fwd_rs1,
-              dbg_fwd_rs2,
-              dbg_busy_vec);
+      cycle_count <= cycle_count + 1;
+
+      // Forwarding source encoding for slot1:
+      // 0 = regfile, 1 = EX1 result, 2 = EX0 result.
+      is_load_ex0 = dut.is_load_ex;
+      is_load_ex1 = dut.de1_ctrl.mem_read && !dut.de1_ctrl.mem_write;
+
+      // rs1 slot1 source
+      fwd_rs1_1_src = 0;
+      if (dut.rs1_1_d != 5'd0) begin
+        if (dut.de1_ctrl.reg_write && !is_load_ex1 &&
+            (dut.de1_rd != 5'd0) && (dut.rs1_1_d == dut.de1_rd)) begin
+          fwd_rs1_1_src = 1;
+        end else if (dut.de_ctrl.reg_write && !is_load_ex0 &&
+                     (dut.de_rd != 5'd0) && (dut.rs1_1_d == dut.de_rd)) begin
+          fwd_rs1_1_src = 2;
+        end
+      end
+
+      // rs2 slot1 source
+      fwd_rs2_1_src = 0;
+      if (dut.rs2_1_d != 5'd0) begin
+        if (dut.de1_ctrl.reg_write && !is_load_ex1 &&
+            (dut.de1_rd != 5'd0) && (dut.rs2_1_d == dut.de1_rd)) begin
+          fwd_rs2_1_src = 1;
+        end else if (dut.de_ctrl.reg_write && !is_load_ex0 &&
+                     (dut.de_rd != 5'd0) && (dut.rs2_1_d == dut.de_rd)) begin
+          fwd_rs2_1_src = 2;
+        end
+      end
+
+      $fwrite(
+          trace_fd,
+          "%0d,%s,%s,%s,%s,%s,%0d,%0d,%s,%s,%s,%s,%0d,%0d,%0d,%0d,%s,%s,%s,%s,%0d,%0d,%0d,%0d,%s,%s,%0d,%0d,%0d,%0d,%0d,%s,%s\n",
+          cycle_count,
+          fmt_hex(dbg_pc_f),
+          fmt_hex(dbg_instr_f),
+          fmt_hex(dut.instr1_f),
+          fmt_hex(dbg_instr_d),
+          fmt_hex(dut.fd_instr1),
+          dut.issue_slot0,
+          dut.issue_slot1,
+          fmt_hex(dbg_instr_e),
+          fmt_hex(dbg_instr_e1),
+          fmt_hex(dbg_result_e),
+          fmt_hex(dbg_result_e1),
+          dbg_branch_taken,
+          dbg_branch_taken1,
+          dbg_jump_taken,
+          dbg_jump_taken1,
+          fmt_hex(dut.branch_target_e),
+          fmt_hex(dut.branch_target_e1),
+          fmt_hex(dbg_jump_target),
+          fmt_hex(dbg_jump_target1),
+          (dut.use_mem0 && dut.de_ctrl.mem_read),
+          (dut.use_mem0 && dut.de_ctrl.mem_write),
+          (dut.use_mem1 && dut.de1_ctrl.mem_read),
+          (dut.use_mem1 && dut.de1_ctrl.mem_write),
+          fmt_hex(dut.addr_e0),
+          fmt_hex(dut.addr_e1),
+          dbg_fwd_rs1,
+          dbg_fwd_rs2,
+          fwd_rs1_1_src,
+          fwd_rs2_1_src,
+          dbg_stall,
+          fmt_hex(dbg_busy_vec),
+          fmt_hex(dut.load_pending_vec)
+      );
 
       if (debug) begin
-        $display("[dbg] cyc=%0d pc_f=%08x id0=%08x id1=%08x issue1=%b mem1=%b branch1=%b load1=%b sys0=%b sys1=%b",
+        $display("[dbg] cyc=%0d pc_f=%08x F0=%08x F1=%08x D0=%08x D1=%08x E0=%08x E1=%08x issue0=%b issue1=%b",
                  cycle_count,
                  dbg_pc_f,
+                 dbg_instr_f,
+                 dut.instr1_f,
                  dbg_instr_d,
                  dut.fd_instr1,
-                 dut.issue_slot1,
-                 (dut.ctrl1_d.mem_read || dut.ctrl1_d.mem_write),
-                 (dut.ctrl1_d.branch || dut.ctrl1_d.jump),
-                 (dut.ctrl1_d.mem_read),
-                 dut.de_ctrl.system,
-                 dut.de1_ctrl.system);
+                 dbg_instr_e,
+                 dbg_instr_e1,
+                 dut.issue_slot0,
+                 dut.issue_slot1);
       end
 
       if (dbg_instr_e == 32'h00100073 || dbg_instr_e == 32'h00000073 ||

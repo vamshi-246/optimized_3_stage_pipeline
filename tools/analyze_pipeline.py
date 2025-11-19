@@ -22,24 +22,37 @@ NOP = 0x00000013
 class TraceEntry:
     cycle: int
     pc_f: int
-    instr_fetch: int
-    instr_decode: int
-    instr_execute: int
-    instr_execute1: int
-    result_execute: int
-    result_execute1: int
-    stall: str
-    branch_taken: bool
+    fetch0: int
+    fetch1: int
+    decode0: int
+    decode1: int
+    issue0: bool
+    issue1: bool
+    exec0: int
+    exec1: int
+    result0: int
+    result1: int
+    branch_taken0: bool
     branch_taken1: bool
-    jump_taken: bool
+    jump_taken0: bool
     jump_taken1: bool
-    jump_target: int
+    branch_target0: int
+    branch_target1: int
+    jump_target0: int
     jump_target1: int
-    stall_flag: bool
-    bubble: bool
-    fwd_rs1: bool
-    fwd_rs2: bool
+    mem0_re: bool
+    mem0_we: bool
+    mem1_re: bool
+    mem1_we: bool
+    mem_addr0: int
+    mem_addr1: int
+    fwd_rs1_0_en: bool
+    fwd_rs2_0_en: bool
+    fwd_rs1_1_src: int
+    fwd_rs2_1_src: int
+    stall_if: bool
     busy_vec: int
+    load_pending_vec: int
 
 
 def read_hex_program(path: Path) -> Dict[int, int]:
@@ -87,32 +100,41 @@ def parse_trace(path: Path) -> List[TraceEntry]:
             if any(c in pc_str.lower() for c in ("x", "z", "?")):
                 break
 
-            stall_str = row.get("stall", "none")
-            if stall_str is None:
-                stall_str = "none"
-            stall_str = stall_str.strip()
             entries.append(
                 TraceEntry(
                     cycle=int(row["cycle"]),
                     pc_f=safe_hex(row["pc_f"], 0),
-                    instr_fetch=safe_hex(row["instr_fetch"], 0),
-                    instr_decode=safe_hex(row["instr_decode"], 0),
-                    instr_execute=safe_hex(row["instr_execute"], 0),
-                    instr_execute1=safe_hex(row.get("instr_execute1", "0"), 0),
-                    result_execute=safe_hex(row["result_execute"], 0),
-                    result_execute1=safe_hex(row.get("result_execute1", "0"), 0),
-                    stall=stall_str,
-                    branch_taken=row.get("branch_taken", "0") not in ("0", "false", "False"),
-                    branch_taken1=row.get("branch_taken1", "0") not in ("0", "false", "False"),
-                    jump_taken=row.get("jump_taken", "0") not in ("0", "false", "False"),
-                    jump_taken1=row.get("jump_taken1", "0") not in ("0", "false", "False"),
-                    jump_target=safe_hex(row.get("jump_target", "0"), 0),
+                    fetch0=safe_hex(row.get("fetch0", "0"), 0),
+                    fetch1=safe_hex(row.get("fetch1", "0"), 0),
+                    decode0=safe_hex(row.get("decode0", "0"), 0),
+                    decode1=safe_hex(row.get("decode1", "0"), 0),
+                    issue0=row.get("issue0", "0") not in ("0", "false", "False", "", None),
+                    issue1=row.get("issue1", "0") not in ("0", "false", "False", "", None),
+                    exec0=safe_hex(row.get("exec0", "0"), 0),
+                    exec1=safe_hex(row.get("exec1", "0"), 0),
+                    result0=safe_hex(row.get("result0", "0"), 0),
+                    result1=safe_hex(row.get("result1", "0"), 0),
+                    branch_taken0=row.get("branch_taken0", "0") not in ("0", "false", "False", "", None),
+                    branch_taken1=row.get("branch_taken1", "0") not in ("0", "false", "False", "", None),
+                    jump_taken0=row.get("jump_taken0", "0") not in ("0", "false", "False", "", None),
+                    jump_taken1=row.get("jump_taken1", "0") not in ("0", "false", "False", "", None),
+                    branch_target0=safe_hex(row.get("branch_target0", "0"), 0),
+                    branch_target1=safe_hex(row.get("branch_target1", "0"), 0),
+                    jump_target0=safe_hex(row.get("jump_target0", "0"), 0),
                     jump_target1=safe_hex(row.get("jump_target1", "0"), 0),
-                    stall_flag=row.get("stall_flag", "0") not in ("0", "false", "False", "", None),
-                    bubble=row.get("bubble", "0") not in ("0", "false", "False", "", None),
-                    fwd_rs1=row.get("forward_rs1", "0") not in ("0", "false", "False", "", None),
-                    fwd_rs2=row.get("forward_rs2", "0") not in ("0", "false", "False", "", None),
+                    mem0_re=row.get("mem0_re", "0") not in ("0", "false", "False", "", None),
+                    mem0_we=row.get("mem0_we", "0") not in ("0", "false", "False", "", None),
+                    mem1_re=row.get("mem1_re", "0") not in ("0", "false", "False", "", None),
+                    mem1_we=row.get("mem1_we", "0") not in ("0", "false", "False", "", None),
+                    mem_addr0=safe_hex(row.get("mem_addr0", "0"), 0),
+                    mem_addr1=safe_hex(row.get("mem_addr1", "0"), 0),
+                    fwd_rs1_0_en=row.get("fwd_rs1_0_en", "0") not in ("0", "false", "False", "", None),
+                    fwd_rs2_0_en=row.get("fwd_rs2_0_en", "0") not in ("0", "false", "False", "", None),
+                    fwd_rs1_1_src=int(row.get("fwd_rs1_1_src", "0") or 0),
+                    fwd_rs2_1_src=int(row.get("fwd_rs2_1_src", "0") or 0),
+                    stall_if=row.get("stall_if_id", "0") not in ("0", "false", "False", "", None),
                     busy_vec=safe_hex(row.get("busy_vec", "0"), 0),
+                    load_pending_vec=safe_hex(row.get("load_pending_vec", "0"), 0),
                 )
             )
     return entries
@@ -242,8 +264,8 @@ def disasm(instr: int) -> str:
 def compute_hazards(entries: List[TraceEntry]) -> int:
     potential_raw = 0
     for i in range(1, len(entries)):
-        dec = decode_fields(entries[i].instr_decode)
-        prev = decode_fields(entries[i - 1].instr_execute)
+        dec = decode_fields(entries[i].decode0)
+        prev = decode_fields(entries[i - 1].exec0)
         if prev["mnemonic"] == "nop":
             continue
         rd_prev = prev["rd"]
@@ -257,32 +279,70 @@ def compute_hazards(entries: List[TraceEntry]) -> int:
 
 
 def print_timeline(entries: List[TraceEntry], prog: Dict[int, int], emit) -> None:
-    header = f"{'Cycle':>5} | {'PC_F':>8} | {'Fetch':<24} | {'Decode':<24} | {'Execute':<24} | {'Exec1':<24} | Notes"
+    header = (
+        f"{'Cycle':>5} | {'PC_F':>8} | "
+        f"{'F0':<18} | {'F1':<18} | "
+        f"{'D0[i0]':<22} | {'D1[i1]':<22} | "
+        f"{'E0/R0':<26} | {'E1/R1':<26} | Notes"
+    )
     emit(header)
     emit("-" * len(header))
     for e in entries:
         note_parts = []
-        if e.branch_taken:
-            note_parts.append("branch_taken")
+        if e.branch_taken0:
+            note_parts.append(f"BR0->0x{e.branch_target0:08x}")
         if e.branch_taken1:
-            note_parts.append("branch1_taken")
-        if e.jump_taken:
-            note_parts.append(f"jump0->0x{e.jump_target:08x}")
+            note_parts.append(f"BR1->0x{e.branch_target1:08x}")
+        if e.jump_taken0:
+            note_parts.append(f"J0->0x{e.jump_target0:08x}")
         if e.jump_taken1:
-            note_parts.append(f"jump1->0x{e.jump_target1:08x}")
-        if e.stall_flag:
+            note_parts.append(f"J1->0x{e.jump_target1:08x}")
+        if e.mem0_re or e.mem0_we:
+            m = []
+            if e.mem0_re:
+                m.append("R")
+            if e.mem0_we:
+                m.append("W")
+            note_parts.append(f"MEM0({''.join(m)})@0x{e.mem_addr0:08x}")
+        if e.mem1_re or e.mem1_we:
+            m = []
+            if e.mem1_re:
+                m.append("R")
+            if e.mem1_we:
+                m.append("W")
+            note_parts.append(f"MEM1({''.join(m)})@0x{e.mem_addr1:08x}")
+        if e.fwd_rs1_0_en:
+            note_parts.append("F0_RS1")
+        if e.fwd_rs2_0_en:
+            note_parts.append("F0_RS2")
+        if e.fwd_rs1_1_src == 1:
+            note_parts.append("F1_RS1=EX1")
+        elif e.fwd_rs1_1_src == 2:
+            note_parts.append("F1_RS1=EX0")
+        if e.fwd_rs2_1_src == 1:
+            note_parts.append("F1_RS2=EX1")
+        elif e.fwd_rs2_1_src == 2:
+            note_parts.append("F1_RS2=EX0")
+        if e.stall_if:
             note_parts.append("STALL(load-use)")
-        if e.fwd_rs1:
-            note_parts.append("FWD_RS1")
-        if e.fwd_rs2:
-            note_parts.append("FWD_RS2")
         if e.busy_vec:
             note_parts.append(f"busy=0x{e.busy_vec:08x}")
+        if e.load_pending_vec:
+            note_parts.append(f"ldpend=0x{e.load_pending_vec:08x}")
+        # Halt marker when a SYSTEM retires
+        if decode_fields(e.exec0)["mnemonic"] == "system":
+            note_parts.append("HALT0")
+        if decode_fields(e.exec1)["mnemonic"] == "system":
+            note_parts.append("HALT1")
         note = ";".join(note_parts)
         emit(
-            f"{e.cycle:5d} | {e.pc_f:08x} | {disasm(e.instr_fetch):<24} | "
-            f"{disasm(e.instr_decode):<24} | {disasm(e.instr_execute):<24} | "
-            f"{disasm(e.instr_execute1):<24} | {note}"
+            f"{e.cycle:5d} | {e.pc_f:08x} | "
+            f"{disasm(e.fetch0):<18} | {disasm(e.fetch1):<18} | "
+            f"{disasm(e.decode0):<18} i0={int(e.issue0)} | "
+            f"{disasm(e.decode1):<18} i1={int(e.issue1)} | "
+            f"{disasm(e.exec0):<12} {e.result0:08x} | "
+            f"{disasm(e.exec1):<12} {e.result1:08x} | "
+            f"{note}"
         )
 
 
@@ -322,13 +382,22 @@ def main() -> None:
     program = read_hex_program(args.hexfile)
 
     total_cycles = len(trace_entries)
-    retired = sum(1 for e in trace_entries if e.instr_execute not in (0, NOP))
+    retired0 = sum(1 for e in trace_entries if e.exec0 not in (0, NOP))
+    retired1 = sum(1 for e in trace_entries if e.exec1 not in (0, NOP))
+    retired = retired0 + retired1
     cpi = float("inf") if retired == 0 else total_cycles / retired
     ipc = 0.0 if total_cycles == 0 else retired / total_cycles
-    branches_taken = sum(1 for e in trace_entries if e.branch_taken)
+    branches_taken = sum(1 for e in trace_entries if e.branch_taken0 or e.branch_taken1)
     potential_raw = compute_hazards(trace_entries)
-    stall_cycles = sum(1 for e in trace_entries if e.stall_flag)
-    forwarding_cycles = sum(1 for e in trace_entries if e.fwd_rs1 or e.fwd_rs2)
+    stall_cycles = sum(1 for e in trace_entries if e.stall_if)
+    forwarding_cycles = sum(
+        1
+        for e in trace_entries
+        if e.fwd_rs1_0_en
+        or e.fwd_rs2_0_en
+        or e.fwd_rs1_1_src in (1, 2)
+        or e.fwd_rs2_1_src in (1, 2)
+    )
     avg_busy = 0.0
     if total_cycles:
         avg_busy = sum(bin(e.busy_vec).count("1") for e in trace_entries) / total_cycles

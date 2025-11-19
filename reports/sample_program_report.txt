@@ -1,0 +1,35 @@
+--- Program (from hex) ---
+    Addr |    Instr | Disassembly
+----------------------------------------
+00000000 | 00500093 | addi x1, x0, 5
+00000004 | 00a00113 | addi x2, x0, 10
+00000008 | 002081b3 | add x3, x1, x2
+0000000c | 00302023 | sw x3, 0(x0)
+00000010 | 00002203 | lw x4, 0(x0)
+00000014 | 004182b3 | add x5, x3, x4
+00000018 | 00500463 | beq x0, x5, 8
+0000001c | 00100073 | system
+
+=== Pipeline Report ===
+Trace file      : sim\pipeline_trace.log
+Program hex     : C:\VAMSHI\IIT Mandi Academic Folder\IITM 5th Sem\Computer Organisation and Architecture\ICARUS\tests\sample_program.hex
+Total cycles    : 8
+Instructions    : 8
+CPI / IPC       : 1.000 / 1.000
+Branches taken  : 1
+Potential RAW hazards (decode vs prev execute): 1
+Stall cycles (load-use)   : 1
+Cycles with forwarding    : 2
+Average busy registers    : 0.62
+
+--- Timeline ---
+Cycle |     PC_F | F0                 | F1                 | D0[i0]                 | D1[i1]                 | E0/R0                      | E1/R1                      | Notes
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+    0 | 00000004 | addi x2, x0, 10    | add x3, x1, x2     | addi x1, x0, 5     i0=1 | addi x2, x0, 10    i1=1 | nop          00000000 | nop          00000000 | 
+    1 | 0000000c | sw x3, 0(x0)       | lw x4, 0(x0)       | addi x2, x0, 10    i0=1 | add x3, x1, x2     i1=0 | addi x1, x0, 5 00000000 | addi x2, x0, 10 00000000 | F1_RS1=EX0;F1_RS2=EX1;busy=0x00000006
+    2 | 00000010 | lw x4, 0(x0)       | add x5, x3, x4     | sw x3, 0(x0)       i0=1 | lw x4, 0(x0)       i1=0 | addi x2, x0, 10 00000000 | nop          00000000 | busy=0x00000004
+    3 | 00000014 | add x5, x3, x4     | beq x0, x5, 8      | lw x4, 0(x0)       i0=1 | add x5, x3, x4     i1=0 | sw x3, 0(x0) 00000000 | nop          00000000 | MEM0(W)@0x00000000
+    4 | 00000018 | beq x0, x5, 8      | system             | add x5, x3, x4     i0=0 | beq x0, x5, 8      i1=0 | lw x4, 0(x0) 00000000 | nop          00000000 | MEM0(R)@0x00000000;STALL(load-use);busy=0x00000010;ldpend=0x00000010
+    5 | 00000018 | beq x0, x5, 8      | system             | add x5, x3, x4     i0=1 | beq x0, x5, 8      i1=0 | nop          00000000 | nop          00000000 | 
+    6 | 0000001c | system             | nop                | beq x0, x5, 8      i0=1 | system             i1=1 | add x5, x3, x4 00000000 | nop          00000000 | F0_RS2;busy=0x00000020
+    7 | 00000024 | nop                | nop                | system             i0=1 | nop                i1=1 | beq x0, x5, 8 00000000 | system       00000000 | BR0->0x00000020;HALT1

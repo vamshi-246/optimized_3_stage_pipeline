@@ -25,18 +25,19 @@
 
 === Pipeline Report ===
 Trace file      : sim\pipeline_trace.log
-Program hex     : tests\dual_issue_probe.hex
-Total cycles    : 4
+Program hex     : C:\VAMSHI\IIT Mandi Academic Folder\IITM 5th Sem\Computer Organisation and Architecture\ICARUS\tests\dual_issue_probe.hex
+Total cycles    : 3
 Instructions    : 3
-CPI / IPC       : 1.333 / 0.750
+CPI / IPC       : 1.000 / 1.000
 Branches taken  : 0
-Potential RAW hazards (decode vs prev execute): 2
+Potential RAW hazards (decode vs prev execute): 1
 Stall cycles (load-use)   : 0
-Cycles with forwarding    : 1
-Average busy registers    : 0.50
-Cycle |     PC_F | Fetch                    | Decode                   | Execute                  | Notes
----------------------------------------------------------------------------------------------------------
-    0 | 00000004 | addi x1, x0, 6           | addi x1, x0, 5           | nop                      | 
-    1 | 00000008 | system                   | addi x1, x0, 6           | addi x1, x0, 5           | busy=0x00000002
-    2 | 00000010 | add x2, x1, x0           | system                   | addi x1, x0, 6           | FWD_RS2;busy=0x00000002
-    3 | 00000014 | system                   | add x2, x1, x0           | system                   | 
+Cycles with forwarding    : 2
+Average busy registers    : 0.67
+
+--- Timeline ---
+Cycle |     PC_F | F0                 | F1                 | D0[i0]                 | D1[i1]                 | E0/R0                      | E1/R1                      | Notes
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+    0 | 00000004 | addi x1, x0, 6     | system             | addi x1, x0, 5     i0=1 | addi x1, x0, 6     i1=0 | nop          00000000 | nop          00000000 | 
+    1 | 00000008 | system             | addi x1, x0, 5     | addi x1, x0, 6     i0=1 | system             i1=1 | addi x1, x0, 5 00000000 | nop          00000000 | F1_RS2=EX0;busy=0x00000002
+    2 | 00000010 | add x2, x1, x0     | system             | system             i0=1 | addi x1, x0, 5     i1=0 | addi x1, x0, 6 00000000 | system       00000000 | F0_RS2;busy=0x00000002;HALT1
