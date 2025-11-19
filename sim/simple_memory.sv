@@ -7,6 +7,9 @@ module simple_memory #(
     // Instruction port (read-only)
     input  logic [31:0] instr_addr,
     output logic [31:0] instr_rdata,
+    // Second instruction read port for dual-issue fetch
+    input  logic [31:0] instr_addr1,
+    output logic [31:0] instr_rdata1,
     // Data port (read/write)
     input  logic [31:0] data_addr,
     input  logic [31:0] data_wdata,
@@ -29,8 +32,9 @@ module simple_memory #(
     $readmemh(filename, mem);
   endtask
 
-  // Instruction fetch: combinational read
-  assign instr_rdata = mem[instr_addr[31:2]];
+  // Instruction fetch: combinational read (dual port)
+  assign instr_rdata  = mem[instr_addr[31:2]];
+  assign instr_rdata1 = mem[instr_addr1[31:2]];
 
   // Data read: combinational for this simple stage
   always_comb begin

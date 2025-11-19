@@ -11,6 +11,8 @@ module universal_tb;
   // Memory interfaces
   logic [31:0] instr_addr;
   logic [31:0] instr_rdata;
+  logic [31:0] instr_addr1;
+  logic [31:0] instr_rdata1;
   logic [31:0] data_addr;
   logic [31:0] data_wdata;
   logic [3:0]  data_we;
@@ -33,6 +35,8 @@ module universal_tb;
       .rst            (rst),
       .instr_addr     (instr_addr),
       .instr_rdata    (instr_rdata),
+      .instr_addr1    (instr_addr1),
+      .instr_rdata1   (instr_rdata1),
       .data_addr      (data_addr),
       .data_wdata     (data_wdata),
       .data_we        (data_we),
@@ -55,6 +59,8 @@ module universal_tb;
       .clk         (clk),
       .instr_addr  (instr_addr),
       .instr_rdata (instr_rdata),
+      .instr_addr1 (instr_addr1),
+      .instr_rdata1(instr_rdata1),
       .data_addr   (data_addr),
       .data_wdata  (data_wdata),
       .data_we     (data_we),

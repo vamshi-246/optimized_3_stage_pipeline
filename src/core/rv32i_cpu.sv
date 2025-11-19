@@ -8,6 +8,9 @@ module rv32i_cpu (
     // Instruction memory interface
     output logic [31:0] instr_addr,
     input  logic [31:0] instr_rdata,
+    // Second instruction fetch slot (PC+4)
+    output logic [31:0] instr_addr1,
+    input  logic [31:0] instr_rdata1,
     // Data memory interface
     output logic [31:0] data_addr,
     output logic [31:0] data_wdata,
@@ -34,22 +37,33 @@ module rv32i_cpu (
   logic [31:0] pc_f;
   logic [31:0] pc_next;
   logic [31:0] pc_plus4_f;
-  logic [31:0] instr_f;
+  logic [31:0] pc_plus8_f;
+  logic [31:0] instr0_f, instr1_f;
 
-  assign instr_addr = pc_f;
-  assign instr_f    = instr_rdata;
-  assign pc_plus4_f = pc_f + 32'd4;
+  // Dual fetch addresses: slot0 at PC, slot1 at PC+4
+  assign instr_addr  = pc_f;
+  assign instr_addr1 = pc_f + 32'd4;
+  assign instr0_f    = instr_rdata;
+  assign instr1_f    = instr_rdata1;
+  assign pc_plus4_f  = pc_f + 32'd4;
+  assign pc_plus8_f  = pc_f + 32'd8;
 
   // Fetch/Decode pipeline registers
   logic [31:0] fd_pc;
   logic [31:0] fd_instr;
+  logic [31:0] fd_instr1;
 
-  // Decode stage signals
-  control_t ctrl_d;
+  // Decode stage signals (slot 0 = older, slot 1 = younger)
+  control_t ctrl_d;      // slot 0 control
+  control_t ctrl1_d;     // slot 1 control
   logic [4:0] rs1_d, rs2_d, rd_d;
+  logic [4:0] rs1_1_d, rs2_1_d, rd1_d;
   logic       use_rs1_d, use_rs2_d;
+  logic       use_rs1_1_d, use_rs2_1_d;
   logic [31:0] imm_d;
+  logic [31:0] imm1_d;
   logic [31:0] rs1_val_d, rs2_val_d;
+  logic [31:0] rs1_val1_d, rs2_val1_d;
   logic [31:0] rs1_val_d_fwd, rs2_val_d_fwd;
 
   // Decode/Execute pipeline registers
@@ -59,15 +73,23 @@ module rv32i_cpu (
   logic [4:0] de_rs1, de_rs2, de_rd;
   logic [31:0] de_rs1_val, de_rs2_val;
   logic [31:0] de_imm;
+  // Slot 1 (younger) pipeline registers – currently kept as bubbles
+  logic [31:0] de1_pc;
+  logic [31:0] de1_instr;
+  control_t de1_ctrl;
+  logic [4:0] de1_rs1, de1_rs2, de1_rd;
+  logic [31:0] de1_rs1_val, de1_rs2_val;
+  logic [31:0] de1_imm;
 
   // Execute stage helpers
-  logic [31:0] op1_e, op2_e;
-  logic [31:0] alu_result_e;
+  logic [31:0] op1_e0, op2_e0;
+  logic [31:0] op1_e1, op2_e1;
+  logic [31:0] alu_result_e0, alu_result_e1;
   logic [31:0] branch_target_e;
   logic branch_cond_e;
   logic branch_taken_e;
-  logic [31:0] load_data_e;
-  logic [31:0] wb_data_e;
+  logic [31:0] load_data_e0;
+  logic [31:0] wb_data_e0, wb_data_e1;
 
   // Hazard / forwarding controls
   logic        stall_if_id;
@@ -78,18 +100,33 @@ module rv32i_cpu (
   logic        hazard_rs1, hazard_rs2;
   logic        prod_is_load_rs1, prod_is_load_rs2;
   logic [31:0] busy_vec;
+  logic [31:0] load_pending_vec;
+  // Issue decisions
+  logic        issue_slot0_raw, issue_slot1_raw;
+  logic        issue_slot0, issue_slot1;
+  // Simple validity markers for decode slots
+  logic        slot0_valid, slot1_valid;
 
-  // Register file instance
+  // Register file instance: 4R / 2W logical implementation.
+  // Slot0 (older) uses write port 0. Slot1 write port is disabled in this
+  // step; EX1 still behaves as a bubble.
   regfile u_regfile (
-      .clk    (clk),
-      .rst    (rst),
-      .we     (de_ctrl.reg_write),
-      .waddr  (de_rd),
-      .wdata  (wb_data_e),
-      .raddr1 (rs1_d),
-      .raddr2 (rs2_d),
-      .rdata1 (rs1_val_d),
-      .rdata2 (rs2_val_d)
+      .clk      (clk),
+      .rst      (rst),
+      .we0      (de_ctrl.reg_write),
+      .waddr0   (de_rd),
+      .wdata0   (wb_data_e0),
+      .we1      (1'b0),
+      .waddr1   (5'd0),
+      .wdata1   (32'h0),
+      .raddr0_1 (rs1_d),
+      .raddr0_2 (rs2_d),
+      .rdata0_1 (rs1_val_d),
+      .rdata0_2 (rs2_val_d),
+      .raddr1_1 (rs1_1_d),
+      .raddr1_2 (rs2_1_d),
+      .rdata1_1 (rs1_val1_d),
+      .rdata1_2 (rs2_val1_d)
   );
 
   decoder u_decoder (
@@ -102,22 +139,43 @@ module rv32i_cpu (
       .use_rs2(use_rs2_d)
   );
 
+  decoder u_decoder1 (
+      .instr (fd_instr1),
+      .ctrl  (ctrl1_d),
+      .rs1   (rs1_1_d),
+      .rs2   (rs2_1_d),
+      .rd    (rd1_d),
+      .use_rs1(use_rs1_1_d),
+      .use_rs2(use_rs2_1_d)
+  );
+
   imm_gen u_imm_gen (
       .instr  (fd_instr),
       .imm_sel(ctrl_d.imm_type),
       .imm    (imm_d)
   );
 
-  // Classify EX instruction as load (used by forwarding and scoreboard).
+  imm_gen u_imm_gen1 (
+      .instr  (fd_instr1),
+      .imm_sel(ctrl1_d.imm_type),
+      .imm    (imm1_d)
+  );
+
+  // Classify EX slot0 instruction as load (used by forwarding and scoreboard).
   assign is_load_ex = de_ctrl.mem_read && !de_ctrl.mem_write;
 
   // Mini-scoreboard: track pending writes and classify hazards seen in ID.
+  // For now, only slot0 may carry a real writer. Slot1 pipeline registers
+  // exist but are kept as bubbles until full dual-issue is wired up.
   reg_status_table u_reg_status_table (
       .clk                (clk),
       .rst                (rst),
-      .rd_write_en_ex     (de_ctrl.reg_write),
-      .rd_ex              (de_rd),
-      .is_load_ex         (is_load_ex),
+      .rd0_write_en_ex    (de_ctrl.reg_write),
+      .rd0_ex             (de_rd),
+      .is_load0_ex        (is_load_ex),
+      .rd1_write_en_ex    (1'b0),
+      .rd1_ex             (5'd0),
+      .is_load1_ex        (1'b0), // slot1 load tracking will be enabled later
       .rs1_id             (rs1_d),
       .rs2_id             (rs2_d),
       .use_rs1_id         (use_rs1_d),
@@ -126,18 +184,42 @@ module rv32i_cpu (
       .hazard_rs2         (hazard_rs2),
       .producer_is_load_rs1(prod_is_load_rs1),
       .producer_is_load_rs2(prod_is_load_rs2),
-      .busy_vec           (busy_vec)
+      .busy_vec           (busy_vec),
+      .load_pending_vec   (load_pending_vec)
   );
 
-  // Hazard detection: stall only on load-use hazards reported by the scoreboard.
-  hazard_unit u_hazard_unit (
-      .hazard_rs1         (hazard_rs1),
-      .hazard_rs2         (hazard_rs2),
-      .producer_is_load_rs1(prod_is_load_rs1),
-      .producer_is_load_rs2(prod_is_load_rs2),
-      .stall_if_id        (stall_if_id),
-      .bubble_ex          (bubble_ex)
+  // Issue unit: decides whether slot0/slot1 are allowed to issue this cycle
+  // based on inter-slot dependencies, scoreboard state, and simple structural
+  // constraints. In this step, slot1 is still treated as a bubble in execute
+  // and we additionally gate its issue decision so that single-issue behaviour
+  // matches Stage-2.5.
+  issue_unit u_issue_unit (
+      .ctrl0          (ctrl_d),
+      .rs1_0          (rs1_d),
+      .rs2_0          (rs2_d),
+      .rd_0           (rd_d),
+      .use_rs1_0      (use_rs1_d),
+      .use_rs2_0      (use_rs2_d),
+      .ctrl1          (ctrl1_d),
+      .rs1_1          (rs1_1_d),
+      .rs2_1          (rs2_1_d),
+      .rd_1           (rd1_d),
+      .use_rs1_1      (use_rs1_1_d),
+      .use_rs2_1      (use_rs2_1_d),
+      .busy_vec       (busy_vec),
+      .load_pending_vec(load_pending_vec),
+      .issue_slot0    (issue_slot0_raw),
+      .issue_slot1    (issue_slot1_raw),
+      .stall_if       (stall_if_id)
   );
+
+  // Issue gating:
+  // - Always allow slot0 when not stalled.
+  // - Allow slot1 only when the issue unit deems it safe, the pipeline is
+  //   not stalled by slot0 hazards, and both decode slots contain real
+  //   instructions (not synthetic NOPs). EX1 still behaves as a bubble.
+  assign issue_slot0 = issue_slot0_raw & ~stall_if_id;
+  assign issue_slot1 = issue_slot1_raw & ~stall_if_id & slot0_valid & slot1_valid;
 
   // Forwarding from EX result into ID register operands (for ALU/branch).
 
@@ -149,18 +231,30 @@ module rv32i_cpu (
       .rd_ex       (de_rd),
       .reg_write_ex(de_ctrl.reg_write),
       .is_load_ex  (is_load_ex),
-      .ex_result   (wb_data_e),
+      .ex_result   (wb_data_e0),
       .fwd_rs1     (rs1_val_d_fwd),
       .fwd_rs2     (rs2_val_d_fwd),
       .fwd_rs1_en  (fwd_rs1_en),
       .fwd_rs2_en  (fwd_rs2_en)
   );
 
-  alu u_alu (
-      .op_a  (op1_e),
-      .op_b  (op2_e),
+  // In this step, bubble_ex simply mirrors the stall condition derived from
+  // the issue unit (load-use hazards on slot0).
+  assign bubble_ex = stall_if_id;
+
+  // ALUs for slot0 and slot1 (slot1 currently operates on bubbles only).
+  alu u_alu0 (
+      .op_a  (op1_e0),
+      .op_b  (op2_e0),
       .alu_op(de_ctrl.alu_op),
-      .result(alu_result_e)
+      .result(alu_result_e0)
+  );
+
+  alu u_alu1 (
+      .op_a  (op1_e1),
+      .op_b  (op2_e1),
+      .alu_op(de1_ctrl.alu_op),
+      .result(alu_result_e1)
   );
 
   branch_unit u_branch_unit (
@@ -176,17 +270,26 @@ module rv32i_cpu (
       pc_f     <= 32'h0;
       fd_pc    <= 32'h0;
       fd_instr <= NOP;
+      fd_instr1 <= NOP;
     end else if (stall_if_id) begin
       // Hold PC and IF/ID on a hazard stall
       pc_f     <= pc_f;
       fd_pc    <= fd_pc;
       fd_instr <= fd_instr;
+      fd_instr1 <= fd_instr1;
     end else begin
       pc_f  <= pc_next;
       fd_pc <= pc_f;
-      fd_instr <= branch_taken_e ? NOP : instr_f; // flush on branch
+      // flush both fetched instructions on branch taken
+      fd_instr  <= branch_taken_e ? NOP : instr0_f;
+      fd_instr1 <= branch_taken_e ? NOP : instr1_f;
     end
   end
+
+  // In this step, treat an entry as valid only when its fetched instruction is
+  // not the synthetic NOP we use for bubbles/reset.
+  assign slot0_valid = (fd_instr  != NOP);
+  assign slot1_valid = (fd_instr1 != NOP);
 
   // DECODE/EXECUTE pipeline registers
   always_ff @(posedge clk or posedge rst) begin
@@ -200,6 +303,16 @@ module rv32i_cpu (
       de_rs1_val <= 32'h0;
       de_rs2_val <= 32'h0;
       de_imm     <= 32'h0;
+      // Slot 1 starts as bubble
+      de1_pc      <= 32'h0;
+      de1_instr   <= NOP;
+      de1_ctrl    <= '0;
+      de1_rs1     <= 5'd0;
+      de1_rs2     <= 5'd0;
+      de1_rd      <= 5'd0;
+      de1_rs1_val <= 32'h0;
+      de1_rs2_val <= 32'h0;
+      de1_imm     <= 32'h0;
     end else if (branch_taken_e) begin
       // Flush decode stage when a branch resolves taken in execute
       de_pc      <= 32'h0;
@@ -211,6 +324,15 @@ module rv32i_cpu (
       de_rs1_val <= 32'h0;
       de_rs2_val <= 32'h0;
       de_imm     <= 32'h0;
+      de1_pc      <= 32'h0;
+      de1_instr   <= NOP;
+      de1_ctrl    <= '0;
+      de1_rs1     <= 5'd0;
+      de1_rs2     <= 5'd0;
+      de1_rd      <= 5'd0;
+      de1_rs1_val <= 32'h0;
+      de1_rs2_val <= 32'h0;
+      de1_imm     <= 32'h0;
     end else if (bubble_ex) begin
       // Insert bubble into execute on a hazard stall
       de_pc      <= 32'h0;
@@ -222,31 +344,91 @@ module rv32i_cpu (
       de_rs1_val <= 32'h0;
       de_rs2_val <= 32'h0;
       de_imm     <= 32'h0;
+      de1_pc      <= 32'h0;
+      de1_instr   <= NOP;
+      de1_ctrl    <= '0;
+      de1_rs1     <= 5'd0;
+      de1_rs2     <= 5'd0;
+      de1_rd      <= 5'd0;
+      de1_rs1_val <= 32'h0;
+      de1_rs2_val <= 32'h0;
+      de1_imm     <= 32'h0;
     end else begin
-      de_pc      <= fd_pc;
-      de_instr   <= fd_instr;
-      de_ctrl    <= ctrl_d;
-      de_rs1     <= rs1_d;
-      de_rs2     <= rs2_d;
-      de_rd      <= rd_d;
-      de_rs1_val <= rs1_val_d_fwd;
-      de_rs2_val <= rs2_val_d_fwd;
-      de_imm     <= imm_d;
+      // Slot0: issue or bubble
+      if (issue_slot0) begin
+        de_pc      <= fd_pc;
+        de_instr   <= fd_instr;
+        de_ctrl    <= ctrl_d;
+        de_rs1     <= rs1_d;
+        de_rs2     <= rs2_d;
+        de_rd      <= rd_d;
+        de_rs1_val <= rs1_val_d_fwd;
+        de_rs2_val <= rs2_val_d_fwd;
+        de_imm     <= imm_d;
+      end else begin
+        de_pc      <= 32'h0;
+        de_instr   <= NOP;
+        de_ctrl    <= '0;
+        de_rs1     <= 5'd0;
+        de_rs2     <= 5'd0;
+        de_rd      <= 5'd0;
+        de_rs1_val <= 32'h0;
+        de_rs2_val <= 32'h0;
+        de_imm     <= 32'h0;
+      end
+
+      // Slot1: issue when legal, else bubble
+      if (issue_slot1) begin
+        de1_pc      <= fd_pc + 32'd4;
+        de1_instr   <= fd_instr1;
+        de1_ctrl    <= ctrl1_d;
+        de1_rs1     <= rs1_1_d;
+        de1_rs2     <= rs2_1_d;
+        de1_rd      <= rd1_d;
+        de1_rs1_val <= rs1_val1_d;
+        de1_rs2_val <= rs2_val1_d;
+        de1_imm     <= imm1_d;
+      end else begin
+        de1_pc      <= 32'h0;
+        de1_instr   <= NOP;
+        de1_ctrl    <= '0;
+        de1_rs1     <= 5'd0;
+        de1_rs2     <= 5'd0;
+        de1_rd      <= 5'd0;
+        de1_rs1_val <= 32'h0;
+        de1_rs2_val <= 32'h0;
+        de1_imm     <= 32'h0;
+      end
     end
   end
 
-  // Operand selection
+  // Operand selection for slot0
   always_comb begin
     unique case (de_ctrl.op1_sel)
-      OP1_RS1:  op1_e = de_rs1_val;
-      OP1_PC:   op1_e = de_pc;
-      OP1_ZERO: op1_e = 32'h0;
-      default:  op1_e = de_rs1_val;
+      OP1_RS1:  op1_e0 = de_rs1_val;
+      OP1_PC:   op1_e0 = de_pc;
+      OP1_ZERO: op1_e0 = 32'h0;
+      default:  op1_e0 = de_rs1_val;
     endcase
   end
 
   always_comb begin
-    op2_e = (de_ctrl.op2_sel == OP2_IMM) ? de_imm : de_rs2_val;
+    op2_e0 = (de_ctrl.op2_sel == OP2_IMM) ? de_imm : de_rs2_val;
+  end
+
+  // Operand selection for slot1 (currently bubble; will be wired when
+  // full dual-issue is enabled)
+  always_comb begin
+    unique case (de1_ctrl.op1_sel)
+      OP1_RS1:  op1_e1 = de1_rs1_val;
+      OP1_PC:   op1_e1 = de1_pc;
+      OP1_ZERO: op1_e1 = 32'h0;
+      default:  op1_e1 = de1_rs1_val;
+    endcase
+  end
+
+  always_comb begin
+    op2_e1 = (de1_ctrl.op2_sel == OP2_IMM) ? de1_imm : de1_rs2_val;
   end
 
   // Branch and jump handling
@@ -261,12 +443,12 @@ module rv32i_cpu (
 
   assign branch_taken_e = (de_ctrl.branch && branch_cond_e) || de_ctrl.jump;
 
-  // Data memory interface (no stalling, single-cycle view)
-  logic [31:0] addr_e;
+  // Data memory interface (single port, driven by slot0 only)
+  logic [31:0] addr_e0;
   logic [3:0]  be_e;
   logic [31:0] wdata_e;
 
-  assign addr_e = de_rs1_val + de_imm;
+  assign addr_e0 = de_rs1_val + de_imm;
 
   always_comb begin
     // Default store parameters
@@ -276,12 +458,12 @@ module rv32i_cpu (
     if (de_ctrl.mem_write) begin
       unique case (de_ctrl.mem_funct3)
         3'b000: begin // SB
-          be_e    = 4'b0001 << addr_e[1:0];
-          wdata_e = {4{de_rs2_val[7:0]}} << (8 * addr_e[1:0]);
+          be_e    = 4'b0001 << addr_e0[1:0];
+          wdata_e = {4{de_rs2_val[7:0]}} << (8 * addr_e0[1:0]);
         end
         3'b001: begin // SH
-          be_e    = addr_e[1] ? 4'b1100 : 4'b0011;
-          wdata_e = {2{de_rs2_val[15:0]}} << (16 * addr_e[1]);
+          be_e    = addr_e0[1] ? 4'b1100 : 4'b0011;
+          wdata_e = {2{de_rs2_val[15:0]}} << (16 * addr_e0[1]);
         end
         default: begin // SW
           be_e    = 4'b1111;
@@ -293,56 +475,66 @@ module rv32i_cpu (
 
   // Load data sign/zero extension
   always_comb begin
-    load_data_e = data_rdata;
+    load_data_e0 = data_rdata;
     unique case (de_ctrl.mem_funct3)
       3'b000: begin // LB
         logic [7:0] b;
-        b = data_rdata >> (8 * addr_e[1:0]);
-        load_data_e = {{24{b[7]}}, b};
+        b = data_rdata >> (8 * addr_e0[1:0]);
+        load_data_e0 = {{24{b[7]}}, b};
       end
       3'b100: begin // LBU
         logic [7:0] b;
-        b = data_rdata >> (8 * addr_e[1:0]);
-        load_data_e = {24'h0, b};
+        b = data_rdata >> (8 * addr_e0[1:0]);
+        load_data_e0 = {24'h0, b};
       end
       3'b001: begin // LH
         logic [15:0] h;
-        h = data_rdata >> (16 * addr_e[1]);
-        load_data_e = {{16{h[15]}}, h};
+        h = data_rdata >> (16 * addr_e0[1]);
+        load_data_e0 = {{16{h[15]}}, h};
       end
       3'b101: begin // LHU
         logic [15:0] h;
-        h = data_rdata >> (16 * addr_e[1]);
-        load_data_e = {16'h0, h};
+        h = data_rdata >> (16 * addr_e0[1]);
+        load_data_e0 = {16'h0, h};
       end
-      default: load_data_e = data_rdata; // LW and default
+      default: load_data_e0 = data_rdata; // LW and default
     endcase
   end
 
-  // Write-back selection
+  // Write-back selection for slot0 and slot1
   always_comb begin
     unique case (de_ctrl.wb_sel)
-      WB_MEM: wb_data_e = load_data_e;
-      WB_PC4: wb_data_e = de_pc + 32'd4;
-      WB_IMM: wb_data_e = de_imm;
-      default: wb_data_e = alu_result_e;
+      WB_MEM: wb_data_e0 = load_data_e0;
+      WB_PC4: wb_data_e0 = de_pc + 32'd4;
+      WB_IMM: wb_data_e0 = de_imm;
+      default: wb_data_e0 = alu_result_e0;
+    endcase
+
+    unique case (de1_ctrl.wb_sel)
+      WB_MEM: wb_data_e1 = 32'h0;          // slot1 cannot access memory yet
+      WB_PC4: wb_data_e1 = de1_pc + 32'd4;
+      WB_IMM: wb_data_e1 = de1_imm;
+      default: wb_data_e1 = alu_result_e1;
     endcase
   end
 
   // Output assignments
-  assign data_addr  = addr_e;
+  assign data_addr  = addr_e0;
   assign data_wdata = wdata_e;
   assign data_we    = de_ctrl.mem_write ? be_e : 4'b0000;
   assign data_re    = de_ctrl.mem_read;
 
-  assign pc_next = branch_taken_e ? branch_target_e : pc_plus4_f;
+  // Next PC: branch target wins, otherwise advance by 4 or 8 depending on
+  // whether slot1 issued in this cycle.
+  assign pc_next = branch_taken_e ? branch_target_e
+                                  : (issue_slot1 ? pc_plus8_f : pc_plus4_f);
 
   // Debug/trace
   assign dbg_pc_f         = pc_f;
-  assign dbg_instr_f      = instr_f;
+  assign dbg_instr_f      = instr0_f;
   assign dbg_instr_d      = fd_instr;
   assign dbg_instr_e      = de_instr;
-  assign dbg_result_e     = wb_data_e;
+  assign dbg_result_e     = wb_data_e0;
   assign dbg_branch_taken = branch_taken_e;
   // Stage-2/2.5 debug indicators
   assign dbg_stall        = stall_if_id;

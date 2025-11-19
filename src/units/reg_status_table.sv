@@ -34,10 +34,13 @@ module reg_status_table (
     input  logic        clk,
     input  logic        rst,
 
-    // EX/WB stage write information
-    input  logic        rd_write_en_ex,
-    input  logic [4:0]  rd_ex,
-    input  logic        is_load_ex,
+    // EX/WB stage write information (two producers: slot0 and slot1)
+    input  logic        rd0_write_en_ex,
+    input  logic [4:0]  rd0_ex,
+    input  logic        is_load0_ex,
+    input  logic        rd1_write_en_ex,
+    input  logic [4:0]  rd1_ex,
+    input  logic        is_load1_ex,
 
     // ID stage sources
     input  logic [4:0]  rs1_id,
@@ -51,8 +54,9 @@ module reg_status_table (
     output logic        producer_is_load_rs1,
     output logic        producer_is_load_rs2,
 
-    // Optional: expose busy[] snapshot for analyzer / debug
-    output logic [31:0] busy_vec
+    // Optional: expose busy[] and load-pending snapshots for analyzer / debug
+    output logic [31:0] busy_vec,
+    output logic [31:0] load_pending_vec
 );
 
   // Per-register status
@@ -70,9 +74,16 @@ module reg_status_table (
       is_load_pending[i] = 1'b0;
     end
 
-    if (rd_write_en_ex && (rd_ex != 5'd0)) begin
-      busy[rd_ex]            = 1'b1;
-      is_load_pending[rd_ex] = is_load_ex;
+    if (rd0_write_en_ex && (rd0_ex != 5'd0)) begin
+      busy[rd0_ex]            = 1'b1;
+      is_load_pending[rd0_ex] = is_load0_ex;
+    end
+
+    if (rd1_write_en_ex && (rd1_ex != 5'd0)) begin
+      busy[rd1_ex]            = 1'b1;
+      // If both slots write the same register and either is a load,
+      // treat it as load-pending for hazard classification.
+      is_load_pending[rd1_ex] = is_load_pending[rd1_ex] | is_load1_ex;
     end
 
     // Combinational hazard view for the ID stage.
@@ -81,9 +92,10 @@ module reg_status_table (
     producer_is_load_rs1 = hazard_rs1 && is_load_pending[rs1_id];
     producer_is_load_rs2 = hazard_rs2 && is_load_pending[rs2_id];
 
-    // Flatten busy[] into a vector for logging/analysis.
+    // Flatten busy[] and is_load_pending[] into vectors for logging/analysis.
     for (int j = 0; j < 32; j = j + 1) begin
-      busy_vec[j] = busy[j];
+      busy_vec[j]        = busy[j];
+      load_pending_vec[j]= is_load_pending[j];
     end
   end
 
