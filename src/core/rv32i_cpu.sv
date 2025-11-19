@@ -440,11 +440,13 @@ module rv32i_cpu (
   assign branch_taken_pre = (branch_en && branch_cond_safe) || (de_ctrl.jump === 1'b1);
   assign branch_taken_e   = (de_instr == NOP) ? 1'b0 : branch_taken_pre;
 
-  // Data memory interface (single port, driven by slot0 only)
+  // Data memory interface (single port, slot0 priority)
   logic [31:0] addr_e0;
   logic [31:0] addr_e1;
   logic [3:0]  be_e;
   logic [31:0] wdata_e;
+  logic [3:0]  be_e1;
+  logic [31:0] wdata_e1;
   logic        use_mem0;
   logic        use_mem1;
 
@@ -474,15 +476,17 @@ module rv32i_cpu (
     end
   end
 
-  // Memory port arbitration: slot0 owns the port unless idle; slot1 load
-  // may borrow the port only when slot0 is not doing memory.
+  // Memory port arbitration: slot0 owns the port unless idle; slot1 may use
+  // the port (load/store) only when slot0 is not doing memory.
   assign use_mem0 = de_ctrl.mem_read || de_ctrl.mem_write;
-  assign use_mem1 = (!use_mem0) && de1_ctrl.mem_read && !de1_ctrl.mem_write;
+  assign use_mem1 = (!use_mem0) && (de1_ctrl.mem_read || de1_ctrl.mem_write);
 
   assign data_addr  = use_mem0 ? addr_e0 : use_mem1 ? addr_e1 : 32'h0;
-  assign data_wdata = wdata_e;
-  assign data_we    = de_ctrl.mem_write ? be_e : 4'b0000;
-  assign data_re    = de_ctrl.mem_read || use_mem1;
+  assign data_wdata = use_mem0 ? wdata_e : use_mem1 ? wdata_e1 : 32'h0;
+  assign data_we    = (use_mem0 && de_ctrl.mem_write) ? be_e :
+                      (use_mem1 && de1_ctrl.mem_write) ? be_e1 : 4'b0000;
+  assign data_re    = (use_mem0 && de_ctrl.mem_read) ||
+                      (use_mem1 && de1_ctrl.mem_read);
 
   // Load data sign/zero extension for slot0
   always_comb begin
@@ -538,6 +542,29 @@ module rv32i_cpu (
       end
       default: load_data_e1 = data_rdata; // LW and default
     endcase
+  end
+
+  // Store data formatting for slot1
+  always_comb begin
+    be_e1    = 4'b0000;
+    wdata_e1 = de1_rs2_val;
+
+    if (de1_ctrl.mem_write) begin
+      unique case (de1_ctrl.mem_funct3)
+        3'b000: begin // SB
+          be_e1    = 4'b0001 << addr_e1[1:0];
+          wdata_e1 = {4{de1_rs2_val[7:0]}} << (8 * addr_e1[1:0]);
+        end
+        3'b001: begin // SH
+          be_e1    = addr_e1[1] ? 4'b1100 : 4'b0011;
+          wdata_e1 = {2{de1_rs2_val[15:0]}} << (16 * addr_e1[1]);
+        end
+        default: begin // SW
+          be_e1    = 4'b1111;
+          wdata_e1 = de1_rs2_val;
+        end
+      endcase
+    end
   end
 
   // Write-back selection for slot0 and slot1

@@ -1,23 +1,35 @@
 --- Program (from hex) ---
     Addr |    Instr | Disassembly
 ----------------------------------------
-00000000 | 00000083 | lb x1, 0(x0)
-00000004 | 00100073 | system
+00000000 | 00500093 | addi x1, x0, 5
+00000004 | 00a00113 | addi x2, x0, 10
+00000008 | 002081b3 | add x3, x1, x2
+0000000c | 00302023 | sw x3, 0(x0)
+00000010 | 00002203 | lw x4, 0(x0)
+00000014 | 004182b3 | add x5, x3, x4
+00000018 | 00500463 | beq x0, x5, 8
+0000001c | 00100073 | system
 
 === Pipeline Report ===
 Trace file      : sim\pipeline_trace.log
-Program hex     : tests\slot1_load_E.hex
-Total cycles    : 2
-Instructions    : 1
-CPI / IPC       : 2.000 / 0.500
+Program hex     : tests\sample_program.hex
+Total cycles    : 8
+Instructions    : 6
+CPI / IPC       : 1.333 / 0.750
 Branches taken  : 0
-Potential RAW hazards (decode vs prev execute): 0
-Stall cycles (load-use)   : 0
-Cycles with forwarding    : 0
-Average busy registers    : 0.50
+Potential RAW hazards (decode vs prev execute): 1
+Stall cycles (load-use)   : 1
+Cycles with forwarding    : 1
+Average busy registers    : 0.62
 
 --- Timeline ---
 Cycle |     PC_F | Fetch                    | Decode                   | Execute                  | Exec1                    | Notes
 ------------------------------------------------------------------------------------------------------------------------------------
-    0 | 00000004 | system                   | lb x1, 0(x0)             | nop                      | nop                      | 
-    1 | 0000000c | nop                      | system                   | lb x1, 0(x0)             | system                   | busy=0x00000002
+    0 | 00000004 | addi x2, x0, 10          | addi x1, x0, 5           | nop                      | nop                      | 
+    1 | 0000000c | sw x3, 0(x0)             | addi x2, x0, 10          | addi x1, x0, 5           | addi x2, x0, 10          | busy=0x00000006
+    2 | 00000010 | lw x4, 0(x0)             | sw x3, 0(x0)             | addi x2, x0, 10          | nop                      | busy=0x00000004
+    3 | 00000014 | add x5, x3, x4           | lw x4, 0(x0)             | sw x3, 0(x0)             | nop                      | 
+    4 | 00000018 | beq x0, x5, 8            | add x5, x3, x4           | lw x4, 0(x0)             | nop                      | STALL(load-use);busy=0x00000010
+    5 | 00000018 | beq x0, x5, 8            | add x5, x3, x4           | nop                      | nop                      | 
+    6 | 0000001c | system                   | beq x0, x5, 8            | add x5, x3, x4           | nop                      | FWD_RS2;busy=0x00000020
+    7 | 00000024 | nop                      | system                   | beq x0, x5, 8            | system                   | 

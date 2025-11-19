@@ -42,6 +42,7 @@ module decoder (
     ctrl.is_lui      = 1'b0;
     ctrl.is_auipc    = 1'b0;
     ctrl.system      = 1'b0;
+    ctrl.is_store    = 1'b0;
 
     // By default, assume rs1 is used (most ops) and rs2 is not.
     use_rs1 = 1'b1;
@@ -113,6 +114,7 @@ module decoder (
         ctrl.imm_type  = IMM_S;
         ctrl.alu_op    = ALU_ADD;
         ctrl.mem_funct3 = funct3;
+        ctrl.is_store  = 1'b1;
         use_rs1        = 1'b1; // base
         use_rs2        = 1'b1; // store data
       end

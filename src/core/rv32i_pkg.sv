@@ -66,6 +66,7 @@ package rv32i_pkg;
     logic      is_lui;
     logic      is_auipc;
     logic      system;       // system/ebreak/ecall
+    logic      is_store;     // store instruction (mem_write)
   } control_t;
 
 endpackage : rv32i_pkg
