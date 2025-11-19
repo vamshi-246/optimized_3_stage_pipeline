@@ -41,6 +41,7 @@ module decoder (
     ctrl.wb_sel      = WB_ALU;
     ctrl.is_lui      = 1'b0;
     ctrl.is_auipc    = 1'b0;
+    ctrl.system      = 1'b0;
 
     // By default, assume rs1 is used (most ops) and rs2 is not.
     use_rs1 = 1'b1;
@@ -180,6 +181,12 @@ module decoder (
         ctrl.alu_op    = ALU_ADD;
         use_rs1        = 1'b0;
         use_rs2        = 1'b0;
+      end
+
+      7'b1110011: begin // SYSTEM (ecall/ebreak/csr - we treat as halt)
+        ctrl.system   = 1'b1;
+        use_rs1       = 1'b0;
+        use_rs2       = 1'b0;
       end
 
       default: begin

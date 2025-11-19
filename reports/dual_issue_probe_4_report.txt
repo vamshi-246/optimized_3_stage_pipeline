@@ -1,0 +1,26 @@
+--- Program (from hex) ---
+    Addr |    Instr | Disassembly
+----------------------------------------
+00000000 | 00002203 | lw x4, 0(x0)
+00000004 | 00320293 | addi x5, x4, 3
+00000008 | 00100073 | system
+
+=== Pipeline Report ===
+Trace file      : sim\pipeline_trace.log
+Program hex     : tests\dual_issue_probe_4.hex
+Total cycles    : 4
+Instructions    : 2
+CPI / IPC       : 2.000 / 0.500
+Branches taken  : 0
+Potential RAW hazards (decode vs prev execute): 1
+Stall cycles (load-use)   : 1
+Cycles with forwarding    : 0
+Average busy registers    : 0.50
+
+--- Timeline ---
+Cycle |     PC_F | Fetch                    | Decode                   | Execute                  | Notes
+---------------------------------------------------------------------------------------------------------
+    0 | 00000004 | addi x5, x4, 3           | lw x4, 0(x0)             | nop                      | 
+    1 | 00000008 | system                   | addi x5, x4, 3           | lw x4, 0(x0)             | STALL(load-use);busy=0x00000010
+    2 | 00000008 | system                   | addi x5, x4, 3           | nop                      | 
+    3 | 00000010 | nop                      | system                   | addi x5, x4, 3           | busy=0x00000020

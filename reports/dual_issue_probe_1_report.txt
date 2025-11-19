@@ -2,24 +2,24 @@
     Addr |    Instr | Disassembly
 ----------------------------------------
 00000000 | 00500093 | addi x1, x0, 5
-00000004 | 00700113 | addi x2, x0, 7
+00000004 | 00600093 | addi x1, x0, 6
 00000008 | 00100073 | system
 
 === Pipeline Report ===
 Trace file      : sim\pipeline_trace.log
-Program hex     : tests\dual_issue_probe_7.hex
+Program hex     : tests\dual_issue_probe_1.hex
 Total cycles    : 3
 Instructions    : 2
 CPI / IPC       : 1.500 / 0.667
 Branches taken  : 0
-Potential RAW hazards (decode vs prev execute): 0
+Potential RAW hazards (decode vs prev execute): 1
 Stall cycles (load-use)   : 0
-Cycles with forwarding    : 0
-Average busy registers    : 1.00
+Cycles with forwarding    : 1
+Average busy registers    : 0.67
 
 --- Timeline ---
 Cycle |     PC_F | Fetch                    | Decode                   | Execute                  | Notes
 ---------------------------------------------------------------------------------------------------------
-    0 | 00000004 | addi x2, x0, 7           | addi x1, x0, 5           | nop                      | 
-    1 | 0000000c | nop                      | addi x2, x0, 7           | addi x1, x0, 5           | busy=0x00000006
-    2 | 00000014 | nop                      | nop                      | addi x2, x0, 7           | busy=0x00000004
+    0 | 00000004 | addi x1, x0, 6           | addi x1, x0, 5           | nop                      | 
+    1 | 00000008 | system                   | addi x1, x0, 6           | addi x1, x0, 5           | busy=0x00000002
+    2 | 00000010 | nop                      | system                   | addi x1, x0, 6           | FWD_RS2;busy=0x00000002

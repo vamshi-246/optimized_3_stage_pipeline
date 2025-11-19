@@ -65,6 +65,7 @@ package rv32i_pkg;
     wb_sel_e   wb_sel;
     logic      is_lui;
     logic      is_auipc;
+    logic      system;       // system/ebreak/ecall
   } control_t;
 
 endpackage : rv32i_pkg

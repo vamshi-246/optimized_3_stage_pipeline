@@ -23,8 +23,14 @@ module universal_tb;
   integer cycle_count = 0;
   integer max_cycles  = 200;
   string  hexfile     = "tests/sample_program.hex";
+  bit     debug       = 1'b0;
 
   integer trace_fd;
+
+  // Debug tap wires
+  logic [31:0] dbg_pc_f, dbg_instr_f, dbg_instr_d, dbg_instr_e, dbg_instr_e1, dbg_result_e;
+  logic        dbg_branch_taken, dbg_stall, dbg_bubble_ex, dbg_fwd_rs1, dbg_fwd_rs2;
+  logic [31:0] dbg_busy_vec;
 
   // Clock generation: 10ns period
   always #5 clk = ~clk;
@@ -42,16 +48,18 @@ module universal_tb;
       .data_we        (data_we),
       .data_re        (data_re),
       .data_rdata     (data_rdata),
-      .dbg_pc_f       (),
-      .dbg_instr_f    (),
-      .dbg_instr_d    (),
-      .dbg_instr_e    (),
-      .dbg_result_e   (),
-      .dbg_branch_taken(),
-      .dbg_stall      (),
-      .dbg_bubble_ex  (),
-      .dbg_fwd_rs1    (),
-      .dbg_fwd_rs2    ()
+      .dbg_pc_f       (dbg_pc_f),
+      .dbg_instr_f    (dbg_instr_f),
+      .dbg_instr_d    (dbg_instr_d),
+      .dbg_instr_e    (dbg_instr_e),
+      .dbg_instr_e1   (dbg_instr_e1),
+      .dbg_result_e   (dbg_result_e),
+      .dbg_branch_taken(dbg_branch_taken),
+      .dbg_stall      (dbg_stall),
+      .dbg_bubble_ex  (dbg_bubble_ex),
+      .dbg_fwd_rs1    (dbg_fwd_rs1),
+      .dbg_fwd_rs2    (dbg_fwd_rs2),
+      .dbg_busy_vec   (dbg_busy_vec)
   );
 
   // Simple unified memory
@@ -78,6 +86,11 @@ module universal_tb;
 
     if ($value$plusargs("MAX_CYCLES=%d", max_cycles)) begin
       $display("Max cycles set to %0d", max_cycles);
+    end
+
+    if ($test$plusargs("DEBUG")) begin
+      debug = 1'b1;
+      $display("Debug tracing enabled.");
     end
   end
 
@@ -116,22 +129,37 @@ module universal_tb;
       cycle_count <= 0;
     end else begin
 	      cycle_count <= cycle_count + 1;
-	      $fwrite(trace_fd, "%0d,%08x,%08x,%08x,%08x,%08x,%s,%0d,%0d,%0d,%0d,%0d,%08x\n",
-	              cycle_count,
-	              dut.dbg_pc_f,
-	              dut.dbg_instr_f,
-	              dut.dbg_instr_d,
-	              dut.dbg_instr_e,
-	              dut.dbg_result_e,
-	              dut.dbg_stall ? "stall" : "none",
-	              dut.dbg_branch_taken,
-	              dut.dbg_stall,
-	              dut.dbg_bubble_ex,
-	              dut.dbg_fwd_rs1,
-	              dut.dbg_fwd_rs2,
-	              dut.dbg_busy_vec);
+      $fwrite(trace_fd, "%0d,%08x,%08x,%08x,%08x,%08x,%s,%0d,%0d,%0d,%0d,%0d,%08x\n",
+              cycle_count,
+              dbg_pc_f,
+              dbg_instr_f,
+              dbg_instr_d,
+              dbg_instr_e,
+              dbg_result_e,
+              dbg_stall ? "stall" : "none",
+              dbg_branch_taken,
+              dbg_stall,
+              dbg_bubble_ex,
+              dbg_fwd_rs1,
+              dbg_fwd_rs2,
+              dbg_busy_vec);
 
-      if (dut.dbg_instr_e == 32'h00100073 || dut.dbg_instr_e == 32'h00000073) begin
+      if (debug) begin
+        $display("[dbg] cyc=%0d pc_f=%08x id0=%08x id1=%08x issue1=%b mem1=%b branch1=%b load1=%b sys0=%b sys1=%b",
+                 cycle_count,
+                 dbg_pc_f,
+                 dbg_instr_d,
+                 dut.fd_instr1,
+                 dut.issue_slot1,
+                 (dut.ctrl1_d.mem_read || dut.ctrl1_d.mem_write),
+                 (dut.ctrl1_d.branch || dut.ctrl1_d.jump),
+                 (dut.ctrl1_d.mem_read),
+                 dut.de_ctrl.system,
+                 dut.de1_ctrl.system);
+      end
+
+      if (dbg_instr_e == 32'h00100073 || dbg_instr_e == 32'h00000073 ||
+          dbg_instr_e1 == 32'h00100073 || dbg_instr_e1 == 32'h00000073) begin
         $display("Halting on system instruction at cycle %0d", cycle_count);
         $finish;
       end

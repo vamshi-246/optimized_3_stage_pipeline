@@ -50,9 +50,36 @@ def read_hex_program(path: Path) -> Dict[int, int]:
 
 def parse_trace(path: Path) -> List[TraceEntry]:
     entries: List[TraceEntry] = []
+
+    def safe_hex(s: str, default: int = 0) -> int:
+        """
+        Convert a Verilog-style hex string to int, tolerating X/Z.
+
+        If the string contains any x/z/? bits (e.g. \"xxxxxxxx\"), return
+        the provided default instead of raising. This keeps the analyzer
+        robust when the testbench logs unknown values after halt.
+        """
+        if s is None:
+            return default
+        s = s.strip()
+        if not s:
+            return default
+        lower = s.lower()
+        if any(c in lower for c in ("x", "z", "?")):
+            return default
+        return int(s, 16)
+
     with path.open() as f:
         reader = csv.DictReader(f)
         for row in reader:
+            pc_str = row.get("pc_f", "")
+            # If PC itself has gone X/Z, treat this and all following rows
+            # as unusable (typically happens after system/halt); stop here.
+            if pc_str is None:
+                break
+            if any(c in pc_str.lower() for c in ("x", "z", "?")):
+                break
+
             stall_str = row.get("stall", "none")
             if stall_str is None:
                 stall_str = "none"
@@ -60,18 +87,18 @@ def parse_trace(path: Path) -> List[TraceEntry]:
             entries.append(
                 TraceEntry(
                     cycle=int(row["cycle"]),
-                    pc_f=int(row["pc_f"], 16),
-                    instr_fetch=int(row["instr_fetch"], 16),
-                    instr_decode=int(row["instr_decode"], 16),
-                    instr_execute=int(row["instr_execute"], 16),
-                    result_execute=int(row["result_execute"], 16),
+                    pc_f=safe_hex(row["pc_f"], 0),
+                    instr_fetch=safe_hex(row["instr_fetch"], 0),
+                    instr_decode=safe_hex(row["instr_decode"], 0),
+                    instr_execute=safe_hex(row["instr_execute"], 0),
+                    result_execute=safe_hex(row["result_execute"], 0),
                     stall=stall_str,
                     branch_taken=row.get("branch_taken", "0") not in ("0", "false", "False"),
                     stall_flag=row.get("stall_flag", "0") not in ("0", "false", "False", "", None),
                     bubble=row.get("bubble", "0") not in ("0", "false", "False", "", None),
                     fwd_rs1=row.get("forward_rs1", "0") not in ("0", "false", "False", "", None),
                     fwd_rs2=row.get("forward_rs2", "0") not in ("0", "false", "False", "", None),
-                    busy_vec=int(row.get("busy_vec", "0"), 16),
+                    busy_vec=safe_hex(row.get("busy_vec", "0"), 0),
                 )
             )
     return entries
@@ -263,7 +290,8 @@ def main() -> None:
 
     def emit(line: str = "") -> None:
         out_lines.append(line)
-        print(line)
+        if args.show:
+            print(line)
 
     trace_entries = parse_trace(args.trace)
     if not trace_entries:
@@ -298,9 +326,10 @@ def main() -> None:
     emit(f"Cycles with forwarding    : {forwarding_cycles}")
     emit(f"Average busy registers    : {avg_busy:.2f}")
 
-    if args.show:
-        print("\n--- Timeline ---")
-        print_timeline(trace_entries, program, emit)
+    # Always include timeline in the written report; show on stdout only if requested.
+    emit("")
+    emit("--- Timeline ---")
+    print_timeline(trace_entries, program, emit)
 
     if args.outfile:
         args.outfile.parent.mkdir(parents=True, exist_ok=True)

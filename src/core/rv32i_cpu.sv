@@ -22,6 +22,8 @@ module rv32i_cpu (
     output logic [31:0] dbg_instr_f,
     output logic [31:0] dbg_instr_d,
     output logic [31:0] dbg_instr_e,
+    // Slot1 execute-stage instruction (for debug / system detection in TB)
+    output logic [31:0] dbg_instr_e1,
     output logic [31:0] dbg_result_e,
     output logic        dbg_branch_taken,
     output logic        dbg_stall,
@@ -65,6 +67,7 @@ module rv32i_cpu (
   logic [31:0] rs1_val_d, rs2_val_d;
   logic [31:0] rs1_val1_d, rs2_val1_d;
   logic [31:0] rs1_val_d_fwd, rs2_val_d_fwd;
+  logic [31:0] rs1_val1_d_fwd, rs2_val1_d_fwd;
 
   // Decode/Execute pipeline registers
   logic [31:0] de_pc;
@@ -73,7 +76,7 @@ module rv32i_cpu (
   logic [4:0] de_rs1, de_rs2, de_rd;
   logic [31:0] de_rs1_val, de_rs2_val;
   logic [31:0] de_imm;
-  // Slot 1 (younger) pipeline registers – currently kept as bubbles
+  // Slot 1 (younger) pipeline registers - currently kept as bubbles
   logic [31:0] de1_pc;
   logic [31:0] de1_instr;
   control_t de1_ctrl;
@@ -108,17 +111,25 @@ module rv32i_cpu (
   logic        slot0_valid, slot1_valid;
 
   // Register file instance: 4R / 2W logical implementation.
-  // Slot0 (older) uses write port 0. Slot1 write port is disabled in this
-  // step; EX1 still behaves as a bubble.
+  // Slot0 (older) uses write port 0. Slot1 uses write port 1 only for safe ALU ops.
   regfile u_regfile (
       .clk      (clk),
       .rst      (rst),
       .we0      (de_ctrl.reg_write),
       .waddr0   (de_rd),
       .wdata0   (wb_data_e0),
-      .we1      (1'b0),
-      .waddr1   (5'd0),
-      .wdata1   (32'h0),
+      // Slot1: enable writeback only for pure ALU ops (no mem, no branches/jumps,
+      // no LUI/AUIPC). This ensures we only turn on EX1 execution for the safe
+      // subset requested for this step.
+      .we1      (de1_ctrl.reg_write &&
+                 !de1_ctrl.mem_read &&
+                 !de1_ctrl.mem_write &&
+                 !de1_ctrl.branch &&
+                 !de1_ctrl.jump &&
+                 !de1_ctrl.is_lui &&
+                 !de1_ctrl.is_auipc),
+      .waddr1   (de1_rd),
+      .wdata1   (wb_data_e1),
       .raddr0_1 (rs1_d),
       .raddr0_2 (rs2_d),
       .rdata0_1 (rs1_val_d),
@@ -165,17 +176,15 @@ module rv32i_cpu (
   assign is_load_ex = de_ctrl.mem_read && !de_ctrl.mem_write;
 
   // Mini-scoreboard: track pending writes and classify hazards seen in ID.
-  // For now, only slot0 may carry a real writer. Slot1 pipeline registers
-  // exist but are kept as bubbles until full dual-issue is wired up.
   reg_status_table u_reg_status_table (
       .clk                (clk),
       .rst                (rst),
       .rd0_write_en_ex    (de_ctrl.reg_write),
       .rd0_ex             (de_rd),
       .is_load0_ex        (is_load_ex),
-      .rd1_write_en_ex    (1'b0),
-      .rd1_ex             (5'd0),
-      .is_load1_ex        (1'b0), // slot1 load tracking will be enabled later
+      .rd1_write_en_ex    (de1_ctrl.reg_write),
+      .rd1_ex             (de1_rd),
+      .is_load1_ex        (1'b0), // slot1 loads still disabled in this step
       .rs1_id             (rs1_d),
       .rs2_id             (rs2_d),
       .use_rs1_id         (use_rs1_d),
@@ -188,11 +197,7 @@ module rv32i_cpu (
       .load_pending_vec   (load_pending_vec)
   );
 
-  // Issue unit: decides whether slot0/slot1 are allowed to issue this cycle
-  // based on inter-slot dependencies, scoreboard state, and simple structural
-  // constraints. In this step, slot1 is still treated as a bubble in execute
-  // and we additionally gate its issue decision so that single-issue behaviour
-  // matches Stage-2.5.
+  // Issue unit: decides whether slot0/slot1 are allowed to issue this cycle.
   issue_unit u_issue_unit (
       .ctrl0          (ctrl_d),
       .rs1_0          (rs1_d),
@@ -217,51 +222,39 @@ module rv32i_cpu (
   // - Always allow slot0 when not stalled.
   // - Allow slot1 only when the issue unit deems it safe, the pipeline is
   //   not stalled by slot0 hazards, and both decode slots contain real
-  //   instructions (not synthetic NOPs). EX1 still behaves as a bubble.
+  //   instructions (not synthetic NOPs).
   assign issue_slot0 = issue_slot0_raw & ~stall_if_id;
   assign issue_slot1 = issue_slot1_raw & ~stall_if_id & slot0_valid & slot1_valid;
 
-  // Forwarding from EX result into ID register operands (for ALU/branch).
-
+  // Forwarding from EX results into ID operands (for ALU/branch).
   forward_unit u_forward_unit (
-      .rs1_id      (rs1_d),
-      .rs2_id      (rs2_d),
-      .rs1_data_id (rs1_val_d),
-      .rs2_data_id (rs2_val_d),
-      .rd_ex       (de_rd),
-      .reg_write_ex(de_ctrl.reg_write),
-      .is_load_ex  (is_load_ex),
-      .ex_result   (wb_data_e0),
-      .fwd_rs1     (rs1_val_d_fwd),
-      .fwd_rs2     (rs2_val_d_fwd),
-      .fwd_rs1_en  (fwd_rs1_en),
-      .fwd_rs2_en  (fwd_rs2_en)
-  );
-
-  // In this step, bubble_ex simply mirrors the stall condition derived from
-  // the issue unit (load-use hazards on slot0).
-  assign bubble_ex = stall_if_id;
-
-  // ALUs for slot0 and slot1 (slot1 currently operates on bubbles only).
-  alu u_alu0 (
-      .op_a  (op1_e0),
-      .op_b  (op2_e0),
-      .alu_op(de_ctrl.alu_op),
-      .result(alu_result_e0)
-  );
-
-  alu u_alu1 (
-      .op_a  (op1_e1),
-      .op_b  (op2_e1),
-      .alu_op(de1_ctrl.alu_op),
-      .result(alu_result_e1)
-  );
-
-  branch_unit u_branch_unit (
-      .rs1_val    (de_rs1_val),
-      .rs2_val    (de_rs2_val),
-      .branch_type(de_ctrl.branch_type),
-      .take_branch(branch_cond_e)
+      // Slot0 ID sources
+      .rs1_0_id      (rs1_d),
+      .rs2_0_id      (rs2_d),
+      .rs1_0_reg     (rs1_val_d),
+      .rs2_0_reg     (rs2_val_d),
+      // Slot1 ID sources
+      .rs1_1_id      (rs1_1_d),
+      .rs2_1_id      (rs2_1_d),
+      .rs1_1_reg     (rs1_val1_d),
+      .rs2_1_reg     (rs2_val1_d),
+      // EX0 info
+      .rd_ex0        (de_rd),
+      .reg_write_ex0 (de_ctrl.reg_write),
+      .is_load_ex0   (is_load_ex),
+      .ex0_result    (wb_data_e0),
+      // EX1 info (slot1 loads are still disabled, so is_load_ex1 is 0)
+      .rd_ex1        (de1_rd),
+      .reg_write_ex1 (de1_ctrl.reg_write),
+      .is_load_ex1   (1'b0),
+      .ex1_result    (wb_data_e1),
+      // Outputs
+      .fwd_rs1_0     (rs1_val_d_fwd),
+      .fwd_rs2_0     (rs2_val_d_fwd),
+      .fwd_rs1_0_en  (fwd_rs1_en),
+      .fwd_rs2_0_en  (fwd_rs2_en),
+      .fwd_rs1_1     (rs1_val1_d_fwd),
+      .fwd_rs2_1     (rs2_val1_d_fwd)
   );
 
   // FETCH stage registers
@@ -286,8 +279,8 @@ module rv32i_cpu (
     end
   end
 
-  // In this step, treat an entry as valid only when its fetched instruction is
-  // not the synthetic NOP we use for bubbles/reset.
+  // Treat a slot as valid only when its fetched instruction is not the NOP
+  // we use for bubbles/reset.
   assign slot0_valid = (fd_instr  != NOP);
   assign slot1_valid = (fd_instr1 != NOP);
 
@@ -303,7 +296,6 @@ module rv32i_cpu (
       de_rs1_val <= 32'h0;
       de_rs2_val <= 32'h0;
       de_imm     <= 32'h0;
-      // Slot 1 starts as bubble
       de1_pc      <= 32'h0;
       de1_instr   <= NOP;
       de1_ctrl    <= '0;
@@ -385,8 +377,8 @@ module rv32i_cpu (
         de1_rs1     <= rs1_1_d;
         de1_rs2     <= rs2_1_d;
         de1_rd      <= rd1_d;
-        de1_rs1_val <= rs1_val1_d;
-        de1_rs2_val <= rs2_val1_d;
+        de1_rs1_val <= rs1_val1_d_fwd;
+        de1_rs2_val <= rs2_val1_d_fwd;
         de1_imm     <= imm1_d;
       end else begin
         de1_pc      <= 32'h0;
@@ -416,8 +408,7 @@ module rv32i_cpu (
     op2_e0 = (de_ctrl.op2_sel == OP2_IMM) ? de_imm : de_rs2_val;
   end
 
-  // Operand selection for slot1 (currently bubble; will be wired when
-  // full dual-issue is enabled)
+  // Operand selection for slot1
   always_comb begin
     unique case (de1_ctrl.op1_sel)
       OP1_RS1:  op1_e1 = de1_rs1_val;
@@ -534,6 +525,7 @@ module rv32i_cpu (
   assign dbg_instr_f      = instr0_f;
   assign dbg_instr_d      = fd_instr;
   assign dbg_instr_e      = de_instr;
+  assign dbg_instr_e1     = de1_instr;
   assign dbg_result_e     = wb_data_e0;
   assign dbg_branch_taken = branch_taken_e;
   // Stage-2/2.5 debug indicators
