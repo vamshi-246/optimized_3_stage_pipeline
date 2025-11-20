@@ -1,27 +1,41 @@
 --- Program (from hex) ---
     Addr |    Instr | Disassembly
 ----------------------------------------
-00000000 | 00500293 | addi x5, x0, 5
-00000004 | 0052b313 | sltiu x6, x5, 5
-00000008 | 00700393 | addi x7, x0, 7
-0000000c | 00100073 | system
+00000000 | 00500093 | addi x1, x0, 5
+00000004 | 00a00113 | addi x2, x0, 10
+00000008 | 002081b3 | add x3, x1, x2
+0000000c | 00302023 | sw x3, 0(x0)
+00000010 | 00002203 | lw x4, 0(x0)
+00000014 | 004182b3 | add x5, x3, x4
+00000018 | 00500463 | beq x0, x5, 8
+0000001c | 00100073 | system
 
 === Pipeline Report ===
 Trace file      : sim\pipeline_trace.log
-Program hex     : tests\temp.hex
-Total cycles    : 4
-Instructions    : 4
-CPI / IPC       : 1.000 / 1.000
+Program hex     : tests\sample_program.hex
+Total cycles    : 7
+Instructions    : 8
+CPI / IPC       : 0.875 / 1.143
 Branches taken  : 0
-Potential RAW hazards (decode vs prev execute): 0
+Potential RAW hazards (decode vs prev execute): 4
 Stall cycles (load-use)   : 0
-Cycles with forwarding    : 1
-Average busy registers    : 0.75
+Cycles with forwarding    : 4
 
 --- Timeline ---
 Cycle |     PC_F | F0                 | F1                 | D0[i0]                 | D1[i1]                 | E0/R0                      | E1/R1                      | Notes
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    0 | 00000004 | sltiu x6, x5, 5    | addi x7, x0, 7     | addi x5, x0, 5     i0=1 | sltiu x6, x5, 5    i1=0 | nop          00000000 | nop          00000000 | F1_RS1=REG;F1_RS2=REG;RAW1(scoreboard)
-    1 | 00000004 | system             | nop                | sltiu x6, x5, 5    i0=1 | addi x7, x0, 7     i1=1 | addi x5, x0, 5 00000000 | nop          00000000 | F0_RS1=EX0;F0_RS2=EX0;F1_RS1=REG;F1_RS2=REG;busy=0x00000020
-    2 | 0000000c | nop                | nop                | system             i0=1 | nop                i1=1 | sltiu x6, x5, 5 00000000 | addi x7, x0, 7 00000000 | F1_RS1=REG;F1_RS2=REG;busy=0x000000c0
-    3 | 00000014 | nop                | nop                | nop                i0=1 | nop                i1=1 | system       00000000 | nop          00000000 | F1_RS1=REG;F1_RS2=REG;HALT0
+    0 | 00000004 | addi x1, x0, 5     | addi x2, x0, 10    | nop                i0=1 | nop                i1=1 | nop          00000000 | nop          00000000 | 
+    1 | 00000008 | add x3, x1, x2     | sw x3, 0(x0)       | addi x1, x0, 5     i0=1 | addi x2, x0, 10    i1=0 | addi x1, x0, 5 00000000 | addi x2, x0, 10 00000000 | F0_RS1=EX0;RAW1(scoreboard)
+    2 | 0000000c | sw x3, 0(x0)       | lw x4, 0(x0)       | add x3, x1, x2     i0=1 | nop                i1=0 | add x3, x1, x2 00000000 | nop          00000000 | F0_RS2=EX0
+    3 | 00000010 | lw x4, 0(x0)       | add x5, x3, x4     | sw x3, 0(x0)       i0=1 | nop                i1=0 | sw x3, 0(x0) 00000000 | nop          00000000 | F1_RS1=EX0
+    4 | 00000014 | add x5, x3, x4     | beq x0, x5, 8      | lw x4, 0(x0)       i0=1 | nop                i1=0 | lw x4, 0(x0) 00000000 | nop          00000000 | 
+    5 | 00000018 | beq x0, x5, 8      | system             | add x5, x3, x4     i0=1 | nop                i1=1 | add x5, x3, x4 00000000 | nop          00000000 | F0_RS2=EX0
+    6 | 00000020 | nop                | nop                | beq x0, x5, 8      i0=1 | system             i1=1 | beq x0, x5, 8 00000000 | system       00000000 | 
+
+=== Summary ===
+Total cycles        : 7
+IPC                 : 1.143
+Dual-issue cycles   : 3
+Stall cycles        : 0
+Hazards (raw/waw/ld): 3/0/0/0
+Forwarding counts   : F0_RS1(EX0)=1, F0_RS2(EX0)=2, F1_RS1(EX1)=0, F1_RS2(EX1)=0, F1_RS1(EX0)=1, F1_RS2(EX0)=0

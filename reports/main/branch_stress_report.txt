@@ -1,0 +1,34 @@
+--- Program (from hex) ---
+    Addr |    Instr | Disassembly
+----------------------------------------
+00000000 | 00100093 | addi x1, x0, 1
+00000004 | 00200113 | addi x2, x0, 2
+00000008 | 00308063 | beq x1, x3, 0
+0000000c | 00108093 | addi x1, x1, 1
+00000010 | 00100073 | system
+
+=== Pipeline Report ===
+Trace file      : sim\pipeline_trace.log
+Program hex     : tests\branch_stress.hex
+Total cycles    : 3
+Instructions    : 4
+CPI / IPC       : 0.750 / 1.333
+Branches taken  : 0
+Potential RAW hazards (decode vs prev execute): 1
+Stall cycles (load-use)   : 0
+Cycles with forwarding    : 1
+
+--- Timeline ---
+Cycle |     PC_F | F0                 | F1                 | D0[i0]                 | D1[i1]                 | E0/R0                      | E1/R1                      | Notes
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+    0 | 00000004 | addi x1, x0, 1     | addi x2, x0, 2     | nop                i0=1 | nop                i1=1 | nop          00000000 | nop          00000000 | 
+    1 | 00000008 | beq x1, x3, 0      | addi x1, x1, 1     | addi x1, x0, 1     i0=1 | addi x2, x0, 2     i1=1 | addi x1, x0, 1 00000000 | addi x2, x0, 2 00000000 | F0_RS1=EX0
+    2 | 00000010 | system             | nop                | beq x1, x3, 0      i0=1 | addi x1, x1, 1     i1=1 | beq x1, x3, 0 00000000 | addi x1, x1, 1 00000000 | 
+
+=== Summary ===
+Total cycles        : 3
+IPC                 : 1.333
+Dual-issue cycles   : 3
+Stall cycles        : 0
+Hazards (raw/waw/ld): 0/0/0/0
+Forwarding counts   : F0_RS1(EX0)=1, F0_RS2(EX0)=0, F1_RS1(EX1)=0, F1_RS2(EX1)=0, F1_RS1(EX0)=0, F1_RS2(EX0)=0

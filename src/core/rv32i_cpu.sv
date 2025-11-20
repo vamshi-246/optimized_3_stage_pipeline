@@ -2,6 +2,8 @@
 
 import rv32i_pkg::*;
 
+// rv32i_cpu: 3-stage dual-issue RV32I core with scoreboard-based hazards
+// and EX-stage writeback. Provides debug taps for the universal testbench.
 module rv32i_cpu (
     input  logic        clk,
     input  logic        rst,
@@ -43,7 +45,6 @@ module rv32i_cpu (
   // Fetch stage
   logic [31:0] pc_f;
   logic [31:0] pc_next;
-  logic [31:0] pc_plus4_f;
   logic [31:0] instr0_f, instr1_f;
   logic [31:0] pc_fetch;
 
@@ -53,7 +54,6 @@ module rv32i_cpu (
   assign instr_addr1 = pc_fetch + 32'd4;
   assign instr0_f    = instr_rdata;
   assign instr1_f    = instr_rdata1;
-  assign pc_plus4_f  = pc_f + 32'd4;
 
   // Fetch/Decode pipeline registers
   logic [31:0] fd_pc;

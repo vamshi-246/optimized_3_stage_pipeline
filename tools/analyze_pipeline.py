@@ -117,8 +117,11 @@ def parse_trace(path: Path) -> List[TraceEntry]:
         return False
 
     with path.open() as f:
-        reader = csv.DictReader(f)
-        for row in reader:
+        filtered = [line for line in f if line.strip() and not line.lstrip().startswith("#")]
+    if not filtered:
+        return entries
+    reader = csv.DictReader(filtered)
+    for row in reader:
             pc_str = row.get("pc_f", "")
             # If PC itself has gone X/Z, treat this and all following rows
             # as unusable (typically happens after system/halt); stop here.
@@ -412,10 +415,6 @@ def writes_rd(mnemonic: str) -> bool:
     return mnemonic in WRITES_RD
 
 
-def format_fwd_src(src: int) -> str:
-    return {1: "EX1", 2: "EX0"}.get(src, "REG")
-
-
 def print_timeline(entries: List[TraceEntry], prog: Dict[int, int], emit) -> None:
     header = (
         f"{'Cycle':>5} | {'PC_F':>8} | "
@@ -425,48 +424,24 @@ def print_timeline(entries: List[TraceEntry], prog: Dict[int, int], emit) -> Non
     )
     emit(header)
     emit("-" * len(header))
-    prev_exec1_fields: Optional[Dict[str, Optional[int]]] = None
-    prev_exec1_writes = False
-    prev_rd1: Optional[int] = None
 
     for disp_cycle, e in enumerate(entries):
         note_parts: List[str] = []
-
-        dec0_fields = decode_fields(e.decode0)
         dec1_fields = decode_fields(e.decode1)
-        exec0_fields = decode_fields(e.exec0)
-        exec1_fields = decode_fields(e.exec1)
-        exec1_writes_now = writes_rd(exec1_fields["mnemonic"]) and exec1_fields["rd"] not in (None, 0)
 
-        # Control-flow events
-        if e.branch_taken0:
-            note_parts.append(f"BR0->0x{e.branch_target0:08x}")
-        if e.branch_taken1:
-            note_parts.append(f"BR1->0x{e.branch_target1:08x}")
-        if e.jump_taken0:
-            note_parts.append(f"J0->0x{e.jump_target0:08x}")
-        if e.jump_taken1:
-            note_parts.append(f"J1->0x{e.jump_target1:08x}")
-
-        # Memory usage
-        if e.mem0_re or e.mem0_we:
-            mode = ("R" if e.mem0_re else "") + ("W" if e.mem0_we else "")
-            note_parts.append(f"MEM0({mode})@0x{e.mem_addr0:08x}")
-        if e.mem1_re or e.mem1_we:
-            mode = ("R" if e.mem1_re else "") + ("W" if e.mem1_we else "")
-            note_parts.append(f"MEM1({mode})@0x{e.mem_addr1:08x}")
-
-        # Forwarding tags
         if e.fwd_rs1_0_en:
             note_parts.append("F0_RS1=EX0")
         if e.fwd_rs2_0_en:
             note_parts.append("F0_RS2=EX0")
-        note_parts.append(f"F1_RS1={format_fwd_src(e.fwd_rs1_1_src)}")
-        note_parts.append(f"F1_RS2={format_fwd_src(e.fwd_rs2_1_src)}")
-        if e.fwd_rs1_1_src == 1 or e.fwd_rs2_1_src == 1:
-            note_parts.append("EX1->ID1_OK")
+        if e.fwd_rs1_1_src == 1:
+            note_parts.append("F1_RS1=EX1")
+        elif e.fwd_rs1_1_src == 2:
+            note_parts.append("F1_RS1=EX0")
+        if e.fwd_rs2_1_src == 1:
+            note_parts.append("F1_RS2=EX1")
+        elif e.fwd_rs2_1_src == 2:
+            note_parts.append("F1_RS2=EX0")
 
-        # Scoreboard hazards
         if e.raw1 and (uses_rs1(dec1_fields["mnemonic"]) or uses_rs2(dec1_fields["mnemonic"])):
             note_parts.append("RAW1(scoreboard)")
         if e.waw1:
@@ -478,53 +453,6 @@ def print_timeline(entries: List[TraceEntry], prog: Dict[int, int], emit) -> Non
         if e.stall_if:
             note_parts.append("STALL(load-use0)")
 
-        # Cross-cycle EX1 producer/consumer analysis:
-        # If previous cycle's EX1 wrote rd1, check how the next cycle consumes it.
-        consumer_not_in_slot1 = False
-        expected_ex1_fwd_missing = False
-        if prev_exec1_writes and prev_rd1 is not None:
-            rd1_prev = prev_rd1
-            # Does decode0 use this register?
-            uses0 = False
-            if uses_rs1(dec0_fields["mnemonic"]) and dec0_fields["rs1"] == rd1_prev:
-                uses0 = True
-            if uses_rs2(dec0_fields["mnemonic"]) and dec0_fields["rs2"] == rd1_prev:
-                uses0 = True
-            # Does decode1 use this register?
-            uses1 = False
-            rs1_uses1 = uses_rs1(dec1_fields["mnemonic"]) and dec1_fields["rs1"] == rd1_prev
-            rs2_uses1 = uses_rs2(dec1_fields["mnemonic"]) and dec1_fields["rs2"] == rd1_prev
-            uses1 = rs1_uses1 or rs2_uses1
-
-            # If slot0 consumes the EX1 result but slot1 does not, the consumer
-            # is in the wrong slot for EX1->ID1 style tests.
-            if uses0 and not uses1:
-                consumer_not_in_slot1 = True
-
-            # If slot1 consumes the EX1 result, we expect forwarding from EX1.
-            if uses1:
-                if rs1_uses1 and e.fwd_rs1_1_src != 1:
-                    expected_ex1_fwd_missing = True
-                if rs2_uses1 and e.fwd_rs2_1_src != 1:
-                    expected_ex1_fwd_missing = True
-
-        if consumer_not_in_slot1:
-            note_parts.append("WARNING:CONSUMER_NOT_IN_SLOT1")
-        if expected_ex1_fwd_missing:
-            note_parts.append("EXPECTED_EX1_FWD_NOT_FOUND")
-
-        # Scoreboard state
-        if e.busy_vec:
-            note_parts.append(f"busy=0x{e.busy_vec:08x}")
-        if e.load_pending_vec:
-            note_parts.append(f"ldpend=0x{e.load_pending_vec:08x}")
-
-        # Halt markers when a SYSTEM retires
-        if exec0_fields["mnemonic"] == "system":
-            note_parts.append("HALT0")
-        if exec1_fields["mnemonic"] == "system":
-            note_parts.append("HALT1")
-
         note = ";".join(note_parts)
         emit(
             f"{disp_cycle:5d} | {e.pc_f:08x} | "
@@ -535,11 +463,6 @@ def print_timeline(entries: List[TraceEntry], prog: Dict[int, int], emit) -> Non
             f"{disasm(e.exec1):<12} {e.result1:08x} | "
             f"{note}"
         )
-
-        # Update previous-cycle EX1 producer view.
-        prev_exec1_fields = exec1_fields
-        prev_exec1_writes = exec1_writes_now
-        prev_rd1 = exec1_fields["rd"] if exec1_writes_now else None
 
 
 def print_program_listing(program: Dict[int, int], emit) -> None:
@@ -594,9 +517,17 @@ def main() -> None:
         or e.fwd_rs1_1_src in (1, 2)
         or e.fwd_rs2_1_src in (1, 2)
     )
-    avg_busy = 0.0
-    if total_cycles:
-        avg_busy = sum(bin(e.busy_vec).count("1") for e in trace_entries) / total_cycles
+    dual_issue_cycles = sum(1 for e in trace_entries if e.issue0 and e.issue1)
+    raw1_count = sum(1 for e in trace_entries if e.raw1)
+    waw1_count = sum(1 for e in trace_entries if e.waw1)
+    lduse0_count = sum(1 for e in trace_entries if e.load_use0)
+    lduse1_count = sum(1 for e in trace_entries if e.load_use1)
+    f0_rs1_count = sum(1 for e in trace_entries if e.fwd_rs1_0_en)
+    f0_rs2_count = sum(1 for e in trace_entries if e.fwd_rs2_0_en)
+    f1_rs1_ex1 = sum(1 for e in trace_entries if e.fwd_rs1_1_src == 1)
+    f1_rs1_ex0 = sum(1 for e in trace_entries if e.fwd_rs1_1_src == 2)
+    f1_rs2_ex1 = sum(1 for e in trace_entries if e.fwd_rs2_1_src == 1)
+    f1_rs2_ex0 = sum(1 for e in trace_entries if e.fwd_rs2_1_src == 2)
 
     print_program_listing(program, emit)
 
@@ -610,12 +541,27 @@ def main() -> None:
     emit(f"Potential RAW hazards (decode vs prev execute): {potential_raw}")
     emit(f"Stall cycles (load-use)   : {stall_cycles}")
     emit(f"Cycles with forwarding    : {forwarding_cycles}")
-    emit(f"Average busy registers    : {avg_busy:.2f}")
 
     # Always include timeline in the written report; show on stdout only if requested.
     emit("")
     emit("--- Timeline ---")
     print_timeline(trace_entries, program, emit)
+    emit("")
+    emit("=== Summary ===")
+    emit(f"Total cycles        : {total_cycles}")
+    emit(f"IPC                 : {ipc:.3f}")
+    emit(f"Dual-issue cycles   : {dual_issue_cycles}")
+    emit(f"Stall cycles        : {stall_cycles}")
+    emit(f"Hazards (raw/waw/ld): {raw1_count}/{waw1_count}/{lduse0_count}/{lduse1_count}")
+    emit(
+        "Forwarding counts   : "
+        f"F0_RS1(EX0)={f0_rs1_count}, "
+        f"F0_RS2(EX0)={f0_rs2_count}, "
+        f"F1_RS1(EX1)={f1_rs1_ex1}, "
+        f"F1_RS2(EX1)={f1_rs2_ex1}, "
+        f"F1_RS1(EX0)={f1_rs1_ex0}, "
+        f"F1_RS2(EX0)={f1_rs2_ex0}"
+    )
 
     if args.outfile:
         args.outfile.parent.mkdir(parents=True, exist_ok=True)

@@ -2,6 +2,8 @@
 
 import rv32i_pkg::*;
 
+// universal_tb: drives the RV32I core, captures pipeline traces, and hosts
+// the simple memory model. Used by all automated stage tests.
 module universal_tb;
 
   // Clock and reset
@@ -149,7 +151,10 @@ module universal_tb;
 
   // Trace logging
   initial begin
+    #1;
     trace_fd = $fopen("sim/pipeline_trace.log", "w");
+    $fwrite(trace_fd, "# test=%s\n", hexfile);
+    $fwrite(trace_fd, "# timestamp=%0t\n", $time);
     $fwrite(trace_fd,
             "cycle,pc_f,fetch0,fetch1,decode0,decode1,issue0,issue1,exec0,exec1,result0,result1,branch_taken0,branch_taken1,jump_taken0,jump_taken1,branch_target0,branch_target1,jump_target0,jump_target1,mem0_re,mem0_we,mem1_re,mem1_we,mem_addr0,mem_addr1,fwd_rs1_0_en,fwd_rs2_0_en,fwd_rs1_1_src,fwd_rs2_1_src,stall_if_id,raw1,waw1,load_use0,load_use1,busy_vec,load_pending_vec\n");
   end
@@ -191,10 +196,10 @@ module universal_tb;
           "%0d,%s,%s,%s,%s,%s,%0d,%0d,%s,%s,%s,%s,%0d,%0d,%0d,%0d,%s,%s,%s,%s,%0d,%0d,%0d,%0d,%s,%s,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%s,%s\n",
           cycle_count,
           fmt_hex(dbg_pc_f),
-          fmt_hex(dbg_instr_f),
-          fmt_hex(dut.instr1_f),
-          fmt_hex(dbg_instr_d),
+          fmt_hex(dut.fd_instr),
           fmt_hex(dut.fd_instr1),
+          fmt_hex(dut.de_instr),
+          fmt_hex(dut.de1_instr),
           dut.issue_slot0,
           dut.issue_slot1,
           fmt_hex(dbg_instr_e),
@@ -232,10 +237,10 @@ module universal_tb;
         $display("[dbg] cyc=%0d pc_f=%08x F0=%08x F1=%08x D0=%08x D1=%08x E0=%08x E1=%08x issue0=%b issue1=%b",
                  cycle_count,
                  dbg_pc_f,
-                 dbg_instr_f,
-                 dut.instr1_f,
-                 dbg_instr_d,
+                 dut.fd_instr,
                  dut.fd_instr1,
+                 dut.de_instr,
+                 dut.de1_instr,
                  dbg_instr_e,
                  dbg_instr_e1,
                  dut.issue_slot0,
