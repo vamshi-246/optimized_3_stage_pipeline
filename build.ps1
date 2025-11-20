@@ -33,7 +33,6 @@ $compileArgs = @(
     "src/units/imm_gen.sv",
     "src/units/regfile.sv",
     "src/units/decoder.sv",
-    "src/units/hazard_unit.sv",
     "src/units/forward_unit.sv",
     "src/units/issue_unit.sv",
     "src/units/reg_status_table.sv"

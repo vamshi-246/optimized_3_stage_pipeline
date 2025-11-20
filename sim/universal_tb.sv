@@ -35,7 +35,7 @@ module universal_tb;
   logic [31:0] dbg_result_e, dbg_result_e1;
   logic        dbg_branch_taken, dbg_branch_taken1, dbg_jump_taken, dbg_jump_taken1;
   logic [31:0] dbg_jump_target, dbg_jump_target1;
-  logic        dbg_stall, dbg_bubble_ex, dbg_fwd_rs1, dbg_fwd_rs2;
+  logic        dbg_stall, dbg_fwd_rs1, dbg_fwd_rs2;
   logic [31:0] dbg_busy_vec;
 
   // Local debug-only helpers for forwarding source classification
@@ -43,6 +43,10 @@ module universal_tb;
   integer fwd_rs2_1_src;
   logic   is_load_ex0;
   logic   is_load_ex1;
+  logic   prev_ex0_fwd_valid = 1'b0;
+  logic   prev_ex1_fwd_valid = 1'b0;
+  logic [4:0] prev_ex0_rd = 5'd0;
+  logic [4:0] prev_ex1_rd = 5'd0;
 
   // Simple helper: print 32-bit value as hex, or "xx" if any bit is X/Z.
   function string fmt_hex(input logic [31:0] v);
@@ -83,7 +87,6 @@ module universal_tb;
       .dbg_jump_target (dbg_jump_target),
       .dbg_jump_target1(dbg_jump_target1),
       .dbg_stall      (dbg_stall),
-      .dbg_bubble_ex  (dbg_bubble_ex),
       .dbg_fwd_rs1    (dbg_fwd_rs1),
       .dbg_fwd_rs2    (dbg_fwd_rs2),
       .dbg_busy_vec   (dbg_busy_vec)
@@ -148,7 +151,7 @@ module universal_tb;
   initial begin
     trace_fd = $fopen("sim/pipeline_trace.log", "w");
     $fwrite(trace_fd,
-            "cycle,pc_f,fetch0,fetch1,decode0,decode1,issue0,issue1,exec0,exec1,result0,result1,branch_taken0,branch_taken1,jump_taken0,jump_taken1,branch_target0,branch_target1,jump_target0,jump_target1,mem0_re,mem0_we,mem1_re,mem1_we,mem_addr0,mem_addr1,fwd_rs1_0_en,fwd_rs2_0_en,fwd_rs1_1_src,fwd_rs2_1_src,stall_if_id,raw0,raw1,waw0,waw1,war0,war1,load_use0,load_use1,busy_vec,load_pending_vec\n");
+            "cycle,pc_f,fetch0,fetch1,decode0,decode1,issue0,issue1,exec0,exec1,result0,result1,branch_taken0,branch_taken1,jump_taken0,jump_taken1,branch_target0,branch_target1,jump_target0,jump_target1,mem0_re,mem0_we,mem1_re,mem1_we,mem_addr0,mem_addr1,fwd_rs1_0_en,fwd_rs2_0_en,fwd_rs1_1_src,fwd_rs2_1_src,stall_if_id,raw1,waw1,load_use0,load_use1,busy_vec,load_pending_vec\n");
   end
 
   // Cycle-by-cycle tracing and stop conditions
@@ -163,33 +166,29 @@ module universal_tb;
       is_load_ex0 = dut.is_load_ex;
       is_load_ex1 = dut.de1_ctrl.mem_read && !dut.de1_ctrl.mem_write;
 
-      // rs1 slot1 source
+      // Forwarding metadata: compare current decode operands against the
+      // previous cycle's execute results.
       fwd_rs1_1_src = 0;
       if (dut.rs1_1_d != 5'd0) begin
-        if (dut.de1_ctrl.reg_write && !is_load_ex1 &&
-            (dut.de1_rd != 5'd0) && (dut.rs1_1_d == dut.de1_rd)) begin
+        if (prev_ex1_fwd_valid && (dut.rs1_1_d == prev_ex1_rd)) begin
           fwd_rs1_1_src = 1;
-        end else if (dut.de_ctrl.reg_write && !is_load_ex0 &&
-                     (dut.de_rd != 5'd0) && (dut.rs1_1_d == dut.de_rd)) begin
+        end else if (prev_ex0_fwd_valid && (dut.rs1_1_d == prev_ex0_rd)) begin
           fwd_rs1_1_src = 2;
         end
       end
 
-      // rs2 slot1 source
       fwd_rs2_1_src = 0;
       if (dut.rs2_1_d != 5'd0) begin
-        if (dut.de1_ctrl.reg_write && !is_load_ex1 &&
-            (dut.de1_rd != 5'd0) && (dut.rs2_1_d == dut.de1_rd)) begin
+        if (prev_ex1_fwd_valid && (dut.rs2_1_d == prev_ex1_rd)) begin
           fwd_rs2_1_src = 1;
-        end else if (dut.de_ctrl.reg_write && !is_load_ex0 &&
-                     (dut.de_rd != 5'd0) && (dut.rs2_1_d == dut.de_rd)) begin
+        end else if (prev_ex0_fwd_valid && (dut.rs2_1_d == prev_ex0_rd)) begin
           fwd_rs2_1_src = 2;
         end
       end
 
       $fwrite(
           trace_fd,
-          "%0d,%s,%s,%s,%s,%s,%0d,%0d,%s,%s,%s,%s,%0d,%0d,%0d,%0d,%s,%s,%s,%s,%0d,%0d,%0d,%0d,%s,%s,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%s,%s\n",
+          "%0d,%s,%s,%s,%s,%s,%0d,%0d,%s,%s,%s,%s,%0d,%0d,%0d,%0d,%s,%s,%s,%s,%0d,%0d,%0d,%0d,%s,%s,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%s,%s\n",
           cycle_count,
           fmt_hex(dbg_pc_f),
           fmt_hex(dbg_instr_f),
@@ -221,12 +220,8 @@ module universal_tb;
           fwd_rs1_1_src,
           fwd_rs2_1_src,
           dbg_stall,
-          dut.raw_hazard0,
           dut.raw_hazard1,
-          dut.waw_hazard0,
           dut.waw_hazard1,
-          dut.war_hazard0,
-          dut.war_hazard1,
           dut.load_use0_h,
           dut.load_use1_h,
           fmt_hex(dbg_busy_vec),
@@ -258,6 +253,16 @@ module universal_tb;
         $finish;
       end
     end
+
+    // Record this cycle's execute-stage writers for next cycle's tagging.
+    prev_ex0_fwd_valid <= dut.de_ctrl.reg_write &&
+                          !is_load_ex0 &&
+                          (dut.de_rd != 5'd0);
+    prev_ex0_rd        <= dut.de_rd;
+    prev_ex1_fwd_valid <= dut.de1_ctrl.reg_write &&
+                          !is_load_ex1 &&
+                          (dut.de1_rd != 5'd0);
+    prev_ex1_rd        <= dut.de1_rd;
   end
 
 endmodule

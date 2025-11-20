@@ -1,0 +1,28 @@
+--- Program (from hex) ---
+    Addr |    Instr | Disassembly
+----------------------------------------
+00000000 | 00000093 | addi x1, x0, 0
+00000004 | 00002103 | lw x2, 0(x0)
+00000008 | 00100193 | addi x3, x0, 1
+0000000c | 00010233 | add x4, x2, x0
+00000010 | 00100073 | system
+
+=== Pipeline Report ===
+Trace file      : sim\pipeline_trace.log
+Program hex     : tests\ex1_id1_fwd_load_blocked.hex
+Total cycles    : 4
+Instructions    : 6
+CPI / IPC       : 0.667 / 1.500
+Branches taken  : 0
+Potential RAW hazards (decode vs prev execute): 0
+Stall cycles (load-use)   : 0
+Cycles with forwarding    : 1
+Average busy registers    : 1.25
+
+--- Timeline ---
+Cycle |     PC_F | F0                 | F1                 | D0[i0]                 | D1[i1]                 | E0/R0                      | E1/R1                      | Notes
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+    0 | 00000004 | lw x2, 0(x0)       | addi x3, x0, 1     | addi x1, x0, 0     i0=1 | lw x2, 0(x0)       i1=1 | nop          00000000 | nop          00000000 | F1_RS1=REG;F1_RS2=REG
+    1 | 0000000c | add x4, x2, x0     | system             | lw x2, 0(x0)       i0=1 | addi x3, x0, 1     i1=1 | addi x1, x0, 0 00000000 | lw x2, 0(x0) 00000093 | MEM1(R)@0x00000000;F1_RS1=REG;F1_RS2=EX0;busy=0x00000006
+   42 | 00000014 | nop                | nop                | add x4, x2, x0     i0=1 | system             i1=1 | lw x2, 0(x0) 00000093 | addi x3, x0, 1 00000000 | MEM0(R)@0x00000000;F1_RS1=REG;F1_RS2=REG;WARNING:CONSUMER_NOT_IN_SLOT1;busy=0x0000000c
+   43 | 0000001c | nop                | nop                | nop                i0=1 | nop                i1=1 | add x4, x2, x0 00000000 | system       00000000 | F1_RS1=REG;F1_RS2=REG;busy=0x00000010;HALT1

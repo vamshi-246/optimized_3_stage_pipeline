@@ -33,7 +33,6 @@ module rv32i_cpu (
     output logic [31:0] dbg_jump_target,
     output logic [31:0] dbg_jump_target1,
     output logic        dbg_stall,
-    output logic        dbg_bubble_ex,
     output logic        dbg_fwd_rs1,
     output logic        dbg_fwd_rs2,
     output logic [31:0] dbg_busy_vec
@@ -104,17 +103,13 @@ module rv32i_cpu (
 
   // Hazard / forwarding controls
   logic        stall_if_id;
-  logic        bubble_ex;
   logic        is_load_ex;
   logic        fwd_rs1_en, fwd_rs2_en;
-  // Mini-scoreboard (register status table) signals
-  logic        hazard_rs1, hazard_rs2;
-  logic        prod_is_load_rs1, prod_is_load_rs2;
+  // Scoreboard signals
   logic [31:0] busy_vec;
   logic [31:0] load_pending_vec;
-  logic        raw_hazard0, raw_hazard1;
-  logic        waw_hazard0, waw_hazard1;
-  logic        war_hazard0, war_hazard1;
+  logic        raw_hazard1;
+  logic        waw_hazard1;
   logic        load_use0_h, load_use1_h;
   // Issue decisions
   logic        issue_slot0_raw, issue_slot1_raw;
@@ -212,12 +207,8 @@ module rv32i_cpu (
       .wb1_we             (de1_ctrl.reg_write && (de1_rd != 5'd0)),
       .wb1_rd             (de1_rd),
       // Hazard outputs
-      .raw_hazard0        (raw_hazard0),
       .raw_hazard1        (raw_hazard1),
-      .waw_hazard0        (waw_hazard0),
       .waw_hazard1        (waw_hazard1),
-      .war_hazard0        (war_hazard0),
-      .war_hazard1        (war_hazard1),
       .load_use0          (load_use0_h),
       .load_use1          (load_use1_h),
       .busy_vec           (busy_vec),
@@ -227,23 +218,9 @@ module rv32i_cpu (
   // Issue unit: decides whether slot0/slot1 are allowed to issue this cycle.
   issue_unit u_issue_unit (
       .ctrl0          (ctrl_d),
-      .rs1_0          (rs1_d),
-      .rs2_0          (rs2_d),
-      .rd_0           (rd_d),
-      .use_rs1_0      (use_rs1_d),
-      .use_rs2_0      (use_rs2_d),
       .ctrl1          (ctrl1_d),
-      .rs1_1          (rs1_1_d),
-      .rs2_1          (rs2_1_d),
-      .rd_1           (rd1_d),
-      .use_rs1_1      (use_rs1_1_d),
-      .use_rs2_1      (use_rs2_1_d),
-      .raw_hazard0    (raw_hazard0),
       .raw_hazard1    (raw_hazard1),
-      .waw_hazard0    (waw_hazard0),
       .waw_hazard1    (waw_hazard1),
-      .war_hazard0    (war_hazard0),
-      .war_hazard1    (war_hazard1),
       .load_use0      (load_use0_h),
       .load_use1      (load_use1_h),
       .issue_slot0    (issue_slot0_raw),
@@ -340,26 +317,6 @@ module rv32i_cpu (
       de1_imm     <= 32'h0;
     end else if (redirect_taken_any) begin
       // Flush decode stage when a branch resolves taken in execute
-      de_pc      <= 32'h0;
-      de_instr   <= NOP;
-      de_ctrl    <= '0;
-      de_rs1     <= 5'd0;
-      de_rs2     <= 5'd0;
-      de_rd      <= 5'd0;
-      de_rs1_val <= 32'h0;
-      de_rs2_val <= 32'h0;
-      de_imm     <= 32'h0;
-      de1_pc      <= 32'h0;
-      de1_instr   <= NOP;
-      de1_ctrl    <= '0;
-      de1_rs1     <= 5'd0;
-      de1_rs2     <= 5'd0;
-      de1_rd      <= 5'd0;
-      de1_rs1_val <= 32'h0;
-      de1_rs2_val <= 32'h0;
-      de1_imm     <= 32'h0;
-    end else if (bubble_ex) begin
-      // Insert bubble into execute on a hazard stall
       de_pc      <= 32'h0;
       de_instr   <= NOP;
       de_ctrl    <= '0;
@@ -681,7 +638,6 @@ module rv32i_cpu (
   assign dbg_jump_target1 = jump_target_e1;
   // Stage-2/2.5 debug indicators
   assign dbg_stall        = stall_if_id;
-  assign dbg_bubble_ex    = bubble_ex;
   assign dbg_fwd_rs1      = fwd_rs1_en;
   assign dbg_fwd_rs2      = fwd_rs2_en;
   assign dbg_busy_vec     = busy_vec;

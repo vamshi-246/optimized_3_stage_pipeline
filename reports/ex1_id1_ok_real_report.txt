@@ -1,0 +1,45 @@
+--- Program (from hex) ---
+    Addr |    Instr | Disassembly
+----------------------------------------
+00000000 | 00000013 | nop
+00000004 | 00000013 | nop
+00000008 | 00000013 | nop
+0000000c | 00600293 | addi x5, x0, 6
+00000010 | 00000013 | nop
+00000014 | 00128313 | addi x6, x5, 1
+00000018 | 00000013 | nop
+0000001c | 00000013 | nop
+00000020 | 00000013 | nop
+00000024 | 00700393 | addi x7, x0, 7
+00000028 | 00000013 | nop
+0000002c | 00238413 | addi x8, x7, 2
+00000030 | 00100073 | system
+
+=== Pipeline Report ===
+Trace file      : sim\pipeline_trace.log
+Program hex     : tests\ex1_id1_ok_real.hex
+Total cycles    : 13
+Instructions    : 5
+CPI / IPC       : 2.600 / 0.385
+Branches taken  : 0
+Potential RAW hazards (decode vs prev execute): 2
+Stall cycles (load-use)   : 0
+Cycles with forwarding    : 0
+Average busy registers    : 0.31
+
+--- Timeline ---
+Cycle |     PC_F | F0                 | F1                 | D0[i0]                 | D1[i1]                 | E0/R0                      | E1/R1                      | Notes
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+    0 | 00000004 | nop                | nop                | nop                i0=1 | nop                i1=0 | nop          00000000 | nop          00000000 | F1_RS1=REG;F1_RS2=REG
+    1 | 00000008 | nop                | addi x5, x0, 6     | nop                i0=1 | nop                i1=0 | nop          00000000 | nop          00000000 | F1_RS1=REG;F1_RS2=REG
+    2 | 0000000c | addi x5, x0, 6     | nop                | nop                i0=1 | addi x5, x0, 6     i1=0 | nop          00000000 | nop          00000000 | F1_RS1=REG;F1_RS2=REG
+    3 | 00000010 | nop                | addi x6, x5, 1     | addi x5, x0, 6     i0=1 | nop                i1=0 | nop          00000000 | nop          00000000 | F1_RS1=REG;F1_RS2=REG
+    4 | 00000014 | addi x6, x5, 1     | nop                | nop                i0=1 | addi x6, x5, 1     i1=0 | addi x5, x0, 6 00000000 | nop          00000000 | F1_RS1=REG;F1_RS2=REG;busy=0x00000020
+    5 | 00000018 | nop                | nop                | addi x6, x5, 1     i0=1 | nop                i1=0 | nop          00000000 | nop          00000000 | F1_RS1=REG;F1_RS2=REG
+    6 | 0000001c | nop                | nop                | nop                i0=1 | nop                i1=0 | addi x6, x5, 1 00000000 | nop          00000000 | F1_RS1=REG;F1_RS2=REG;busy=0x00000040
+    7 | 00000020 | nop                | addi x7, x0, 7     | nop                i0=1 | nop                i1=0 | nop          00000000 | nop          00000000 | F1_RS1=REG;F1_RS2=REG
+    8 | 00000024 | addi x7, x0, 7     | nop                | nop                i0=1 | addi x7, x0, 7     i1=0 | nop          00000000 | nop          00000000 | F1_RS1=REG;F1_RS2=REG
+    9 | 00000028 | nop                | addi x8, x7, 2     | addi x7, x0, 7     i0=1 | nop                i1=0 | nop          00000000 | nop          00000000 | F1_RS1=REG;F1_RS2=REG
+   10 | 0000002c | addi x8, x7, 2     | system             | nop                i0=1 | addi x8, x7, 2     i1=0 | addi x7, x0, 7 00000000 | nop          00000000 | F1_RS1=REG;F1_RS2=REG;busy=0x00000080
+   11 | 00000030 | system             | nop                | addi x8, x7, 2     i0=1 | system             i1=1 | nop          00000000 | nop          00000000 | F1_RS1=REG;F1_RS2=REG
+   12 | 00000038 | nop                | nop                | system             i0=1 | nop                i1=1 | addi x8, x7, 2 00000000 | system       00000000 | F1_RS1=REG;F1_RS2=REG;busy=0x00000100;HALT1

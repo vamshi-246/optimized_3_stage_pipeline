@@ -1,0 +1,29 @@
+--- Program (from hex) ---
+    Addr |    Instr | Disassembly
+----------------------------------------
+00000000 | 00100593 | addi x11, x0, 1
+00000004 | 00500593 | addi x11, x0, 5
+00000008 | 00300193 | addi x3, x0, 3
+0000000c | 00b50333 | add x6, x10, x11
+00000010 | 00100073 | system
+
+=== Pipeline Report ===
+Trace file      : sim\pipeline_trace.log
+Program hex     : tests\ex1_id1_fwd_ex0_shadow.hex
+Total cycles    : 5
+Instructions    : 6
+CPI / IPC       : 0.833 / 1.200
+Branches taken  : 0
+Potential RAW hazards (decode vs prev execute): 0
+Stall cycles (load-use)   : 0
+Cycles with forwarding    : 1
+Average busy registers    : 1.00
+
+--- Timeline ---
+Cycle |     PC_F | F0                 | F1                 | D0[i0]                 | D1[i1]                 | E0/R0                      | E1/R1                      | Notes
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+    0 | 00000004 | addi x11, x0, 5    | addi x3, x0, 3     | addi x11, x0, 1    i0=1 | addi x11, x0, 5    i1=0 | nop          00000000 | nop          00000000 | F1_RS1=REG;F1_RS2=REG;WAW1(scoreboard)
+    1 | 00000008 | addi x3, x0, 3     | add x6, x10, x11   | addi x11, x0, 5    i0=1 | addi x3, x0, 3     i1=1 | addi x11, x0, 1 00000000 | nop          00000000 | F1_RS1=REG;F1_RS2=REG;busy=0x00000800
+    2 | 00000010 | system             | nop                | addi x3, x0, 3     i0=1 | add x6, x10, x11   i1=1 | addi x11, x0, 5 00000000 | addi x3, x0, 3 00000000 | F1_RS1=REG;F1_RS2=EX0;busy=0x00000808
+    3 | 00000018 | nop                | nop                | system             i0=1 | nop                i1=1 | addi x3, x0, 3 00000000 | add x6, x10, x11 00000000 | F1_RS1=REG;F1_RS2=REG;busy=0x00000048
+    4 | 00000020 | nop                | nop                | nop                i0=1 | nop                i1=1 | system       00000000 | nop          00000000 | F1_RS1=REG;F1_RS2=REG;HALT0

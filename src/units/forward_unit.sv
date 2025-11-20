@@ -3,8 +3,8 @@
 // Simple EX->ID forwarding unit for the 3-stage RV32I pipeline.
 // - For ALU/branch dependencies, forwards the result from EX to the
 //   Decode-stage operands when rs1/rs2 match rd_ex.
-// - Load-use hazards are not resolved by forwarding; they must be
-//   handled by the hazard_unit through a stall.
+// - Load-use hazards are not resolved by forwarding; they are handled
+//   by the scoreboard/issue logic inserting a stall.
 module forward_unit (
     // Slot0 ID sources and raw register file values
     input  logic [4:0]  rs1_0_id,
@@ -63,7 +63,9 @@ module forward_unit (
       end
     end
 
-    // Slot1 forwarding: EX1 has priority, then EX0.
+    // Slot1 forwarding: EX1 has priority, then EX0. This guarantees that a
+    // younger slot taking the same destination register always observes its
+    // own result first, even when EX0 is also writing elsewhere.
     // EX1 -> ID1
     if (reg_write_ex1 && !is_load_ex1 && (rd_ex1 != 5'd0)) begin
       if (rs1_1_id == rd_ex1) begin

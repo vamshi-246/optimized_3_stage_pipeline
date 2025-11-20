@@ -11,7 +11,7 @@
 
 === Pipeline Report ===
 Trace file      : sim\pipeline_trace.log
-Program hex     : C:\VAMSHI\IIT Mandi Academic Folder\IITM 5th Sem\Computer Organisation and Architecture\ICARUS\tests\slot1_jump_G.hex
+Program hex     : tests\slot1_jump_G.hex
 Total cycles    : 7
 Instructions    : 6
 CPI / IPC       : 1.167 / 0.857
@@ -24,10 +24,10 @@ Average busy registers    : 1.00
 --- Timeline ---
 Cycle |     PC_F | F0                 | F1                 | D0[i0]                 | D1[i1]                 | E0/R0                      | E1/R1                      | Notes
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    0 | 00000004 | sw x0, 0(x8)       | lw x9, 0(x8)       | addi x8, x0, 32    i0=1 | sw x0, 0(x8)       i1=0 | nop          00000000 | nop          00000000 | RAW1;LDUSE1
-    1 | 00000008 | lw x9, 0(x8)       | jal x10, 8         | sw x0, 0(x8)       i0=1 | lw x9, 0(x8)       i1=0 | addi x8, x0, 32 00000000 | nop          00000000 | F0_RS1;F1_RS1=EX0;LDUSE1;busy=0x00000100
-    2 | 0000000c | jal x10, 8         | nop                | lw x9, 0(x8)       i0=1 | jal x10, 8         i1=1 | sw x0, 0(x8) 00000000 | nop          00000000 | MEM0(W)@0x00000000;LDUSE1
-    3 | 00000014 | addi x11, x0, 7    | system             | jal x10, 8         i0=1 | nop                i1=0 | lw x9, 0(x8) 00000000 | jal x10, 8   00000010 | J1->0x00000014;MEM0(R)@0x00000000;LDUSE1;busy=0x00000600
- 2004 | 00000014 | addi x11, x0, 7    | system             | nop                i0=1 | nop                i1=0 | nop          00000000 | nop          00000000 | LDUSE1;busy=0x00000400
-    5 | 00000018 | system             | nop                | addi x11, x0, 7    i0=1 | system             i1=1 | nop          00000000 | nop          00000000 | LDUSE1;busy=0x00000400
-    6 | 00000020 | nop                | nop                | system             i0=1 | nop                i1=1 | addi x11, x0, 7 00000000 | system       00000000 | LDUSE1;busy=0x00000c00;HALT1
+    0 | 00000004 | sw x0, 0(x8)       | lw x9, 0(x8)       | addi x8, x0, 32    i0=1 | sw x0, 0(x8)       i1=0 | nop          00000000 | nop          00000000 | F1_RS1=REG;F1_RS2=REG;RAW1(scoreboard);LDUSE1
+    1 | 00000008 | lw x9, 0(x8)       | jal x10, 8         | sw x0, 0(x8)       i0=1 | lw x9, 0(x8)       i1=0 | addi x8, x0, 32 00000000 | nop          00000000 | F0_RS1=EX0;F1_RS1=EX0;F1_RS2=REG;LDUSE1;busy=0x00000100
+    2 | 0000000c | jal x10, 8         | nop                | lw x9, 0(x8)       i0=1 | jal x10, 8         i1=1 | sw x0, 0(x8) 00000000 | nop          00000000 | MEM0(W)@0x00000000;F1_RS1=REG;F1_RS2=REG;LDUSE1
+    3 | 00000014 | addi x11, x0, 7    | system             | jal x10, 8         i0=1 | nop                i1=0 | lw x9, 0(x8) 00000000 | jal x10, 8   00000010 | J1->0x00000014;MEM0(R)@0x00000000;F1_RS1=REG;F1_RS2=REG;LDUSE1;busy=0x00000600
+ 2004 | 00000014 | addi x11, x0, 7    | system             | nop                i0=1 | nop                i1=0 | nop          00000000 | nop          00000000 | F1_RS1=REG;F1_RS2=REG;LDUSE1;busy=0x00000400
+    5 | 00000018 | system             | nop                | addi x11, x0, 7    i0=1 | system             i1=1 | nop          00000000 | nop          00000000 | F1_RS1=REG;F1_RS2=REG;LDUSE1;busy=0x00000400
+    6 | 00000020 | nop                | nop                | system             i0=1 | nop                i1=1 | addi x11, x0, 7 00000000 | system       00000000 | F1_RS1=REG;F1_RS2=REG;LDUSE1;busy=0x00000c00;HALT1

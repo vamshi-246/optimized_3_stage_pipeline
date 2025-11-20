@@ -7,7 +7,7 @@
 
 === Pipeline Report ===
 Trace file      : sim\pipeline_trace.log
-Program hex     : C:\VAMSHI\IIT Mandi Academic Folder\IITM 5th Sem\Computer Organisation and Architecture\ICARUS\tests\dual_issue_probe_3.hex
+Program hex     : tests\dual_issue_probe_3.hex
 Total cycles    : 3
 Instructions    : 4
 CPI / IPC       : 0.750 / 1.333
@@ -20,6 +20,6 @@ Average busy registers    : 1.00
 --- Timeline ---
 Cycle |     PC_F | F0                 | F1                 | D0[i0]                 | D1[i1]                 | E0/R0                      | E1/R1                      | Notes
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    0 | 00000004 | addi x1, x0, 9     | system             | add x3, x1, x2     i0=1 | addi x1, x0, 9     i1=1 | nop          00000000 | nop          00000000 | LDUSE1
-    1 | 0000000c | nop                | nop                | addi x1, x0, 9     i0=1 | system             i1=1 | add x3, x1, x2 00000000 | addi x1, x0, 9 00000000 | F1_RS2=EX1;LDUSE1;busy=0x0000000a
-    2 | 00000014 | nop                | nop                | nop                i0=1 | nop                i1=1 | addi x1, x0, 9 00000000 | system       00000000 | LDUSE1;busy=0x00000002;HALT1
+    0 | 00000004 | addi x1, x0, 9     | system             | add x3, x1, x2     i0=1 | addi x1, x0, 9     i1=1 | nop          00000000 | nop          00000000 | F1_RS1=REG;F1_RS2=REG;LDUSE1
+    1 | 0000000c | nop                | nop                | addi x1, x0, 9     i0=1 | system             i1=1 | add x3, x1, x2 00000000 | addi x1, x0, 9 00000000 | F1_RS1=REG;F1_RS2=EX1;LDUSE1;busy=0x0000000a
+    2 | 00000014 | nop                | nop                | nop                i0=1 | nop                i1=1 | addi x1, x0, 9 00000000 | system       00000000 | F1_RS1=REG;F1_RS2=REG;LDUSE1;busy=0x00000002;HALT1

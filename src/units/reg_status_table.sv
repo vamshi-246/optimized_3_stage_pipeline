@@ -19,10 +19,8 @@
 //   - For slot1, the busy view also considers slot0's instruction if it
 //     issues in the same cycle (so inter-slot hazards are captured without
 //     ad-hoc checks in the issue unit).
-//
-// WAR is not relevant for this in-order pipeline (reads happen before writes
-// in program order), so war_hazard* are driven low to keep the interface
-// explicit.
+//   - WAR hazards are irrelevant in this in-order 3-stage design (reads happen
+//     before writes); they are not generated or exported.
 module reg_status_table (
     input  logic        clk,
     input  logic        rst,
@@ -52,12 +50,8 @@ module reg_status_table (
     input  logic [4:0]  wb1_rd,
 
     // Hazard outputs toward the issue unit
-    output logic        raw_hazard0,
     output logic        raw_hazard1,
-    output logic        waw_hazard0,
     output logic        waw_hazard1,
-    output logic        war_hazard0,
-    output logic        war_hazard1,
     output logic        load_use0,
     output logic        load_use1,
 
@@ -89,6 +83,7 @@ module reg_status_table (
     load_pending_next    = is_load_pending;
 
     // Apply same-cycle writeback clears before hazard evaluation.
+    // Any writeback (load or ALU) clears both busy and load-pending views.
     if (wb0_we && (wb0_rd != 5'd0)) begin
       busy_view[wb0_rd]            = 1'b0;
       load_view[wb0_rd]            = 1'b0;
@@ -108,9 +103,7 @@ module reg_status_table (
       load_view_with_slot0[rd0_issue] = is_load0_issue;
     end
 
-    // RAW hazards
-    raw_hazard0 = (use_rs1_0 && busy_view[rs1_0]) ||
-                  (use_rs2_0 && busy_view[rs2_0]);
+    // RAW hazards (slot1 only needs scoreboard visibility)
     raw_hazard1 = (use_rs1_1 && busy_view_with_slot0[rs1_1]) ||
                   (use_rs2_1 && busy_view_with_slot0[rs2_1]);
 
@@ -120,15 +113,10 @@ module reg_status_table (
     load_use1 = (use_rs1_1 && busy_view_with_slot0[rs1_1] && load_view_with_slot0[rs1_1]) ||
                 (use_rs2_1 && busy_view_with_slot0[rs2_1] && load_view_with_slot0[rs2_1]);
 
-    // WAW hazards against older in-flight writers
-    waw_hazard0 = reg_write0_issue && (rd0_issue != 5'd0) && busy_view[rd0_issue];
+    // WAW hazards against older in-flight writers (slot1 only)
     waw_hazard1 = reg_write1_issue && (rd1_issue != 5'd0) && busy_view_with_slot0[rd1_issue];
 
-    // WAR not relevant for in-order pipeline; keep explicit zeros.
-    war_hazard0 = 1'b0;
-    war_hazard1 = 1'b0;
-
-    // Next-state update: start from cleared view, then set new issuers.
+    // Next-state update: start from the writeback-cleared view, then set new issuers.
     busy_next           = busy_view;
     load_pending_next   = load_view;
     if (issue0 && reg_write0_issue && (rd0_issue != 5'd0)) begin

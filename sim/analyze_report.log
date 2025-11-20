@@ -1,25 +1,25 @@
 --- Program (from hex) ---
     Addr |    Instr | Disassembly
 ----------------------------------------
-00000000 | 00002103 | lw x2, 0(x0)
-00000004 | 00110193 | addi x3, x2, 1
+00000000 | 00100113 | addi x2, x0, 1
+00000004 | 00208193 | addi x3, x1, 2
 00000008 | 00100073 | system
 
 === Pipeline Report ===
 Trace file      : sim\pipeline_trace.log
-Program hex     : tests\scoreboard_loaduse_A.hex
+Program hex     : tests\temptest.hex
 Total cycles    : 3
-Instructions    : 3
-CPI / IPC       : 1.000 / 1.000
+Instructions    : 4
+CPI / IPC       : 0.750 / 1.333
 Branches taken  : 0
 Potential RAW hazards (decode vs prev execute): 0
 Stall cycles (load-use)   : 0
-Cycles with forwarding    : 0
-Average busy registers    : 0.67
+Cycles with forwarding    : 1
+Average busy registers    : 1.00
 
 --- Timeline ---
 Cycle |     PC_F | F0                 | F1                 | D0[i0]                 | D1[i1]                 | E0/R0                      | E1/R1                      | Notes
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    0 | 00000004 | addi x3, x2, 1     | system             | lw x2, 0(x0)       i0=1 | addi x3, x2, 1     i1=0 | nop          00000000 | nop          00000000 | RAW1;LDUSE1
-    1 | 00000008 | system             | nop                | addi x3, x2, 1     i0=1 | system             i1=1 | lw x2, 0(x0) 00002103 | nop          00000000 | MEM0(R)@0x00000000;LDUSE1;busy=0x00000004
-   42 | 00000010 | nop                | nop                | system             i0=1 | nop                i1=1 | addi x3, x2, 1 00000000 | system       00000000 | LDUSE1;busy=0x00000008;HALT1
+    0 | 00000004 | addi x3, x1, 2     | system             | addi x2, x0, 1     i0=1 | addi x3, x1, 2     i1=1 | nop          00000000 | nop          00000000 | F1_RS1=REG;F1_RS2=REG
+    1 | 0000000c | nop                | nop                | addi x3, x1, 2     i0=1 | system             i1=1 | addi x2, x0, 1 00000000 | addi x3, x1, 2 00000000 | F0_RS2=EX0;F1_RS1=REG;F1_RS2=REG;busy=0x0000000c
+    2 | 00000014 | nop                | nop                | nop                i0=1 | nop                i1=1 | addi x3, x1, 2 00000000 | system       00000000 | F1_RS1=REG;F1_RS2=REG;busy=0x00000008;HALT1

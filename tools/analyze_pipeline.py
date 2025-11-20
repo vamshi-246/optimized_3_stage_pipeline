@@ -51,12 +51,8 @@ class TraceEntry:
     fwd_rs1_1_src: int
     fwd_rs2_1_src: int
     stall_if: bool
-    raw0: bool
     raw1: bool
-    waw0: bool
     waw1: bool
-    war0: bool
-    war1: bool
     load_use0: bool
     load_use1: bool
     busy_vec: int
@@ -97,6 +93,26 @@ def parse_trace(path: Path) -> List[TraceEntry]:
             return default
         return int(s, 16)
 
+    def safe_int_field(s: Optional[str], default: int = 0) -> int:
+        if s is None:
+            return default
+        s = s.strip()
+        if not s:
+            return default
+        lower = s.lower()
+        if any(c in lower for c in ("x", "z", "?")):
+            return default
+        try:
+            return int(s, 0)
+        except ValueError:
+            return default
+
+    def parse_bool(s: Optional[str]) -> bool:
+        if s is None:
+            return False
+        s = s.strip().lower()
+        return s not in ("0", "false", "")
+
     with path.open() as f:
         reader = csv.DictReader(f)
         for row in reader:
@@ -116,39 +132,35 @@ def parse_trace(path: Path) -> List[TraceEntry]:
                     fetch1=safe_hex(row.get("fetch1", "0"), 0),
                     decode0=safe_hex(row.get("decode0", "0"), 0),
                     decode1=safe_hex(row.get("decode1", "0"), 0),
-                    issue0=row.get("issue0", "0") not in ("0", "false", "False", "", None),
-                    issue1=row.get("issue1", "0") not in ("0", "false", "False", "", None),
+                    issue0=parse_bool(row.get("issue0", "0")),
+                    issue1=parse_bool(row.get("issue1", "0")),
                     exec0=safe_hex(row.get("exec0", "0"), 0),
                     exec1=safe_hex(row.get("exec1", "0"), 0),
                     result0=safe_hex(row.get("result0", "0"), 0),
                     result1=safe_hex(row.get("result1", "0"), 0),
-                    branch_taken0=row.get("branch_taken0", "0") not in ("0", "false", "False", "", None),
-                    branch_taken1=row.get("branch_taken1", "0") not in ("0", "false", "False", "", None),
-                    jump_taken0=row.get("jump_taken0", "0") not in ("0", "false", "False", "", None),
-                    jump_taken1=row.get("jump_taken1", "0") not in ("0", "false", "False", "", None),
+                    branch_taken0=parse_bool(row.get("branch_taken0", "0")),
+                    branch_taken1=parse_bool(row.get("branch_taken1", "0")),
+                    jump_taken0=parse_bool(row.get("jump_taken0", "0")),
+                    jump_taken1=parse_bool(row.get("jump_taken1", "0")),
                     branch_target0=safe_hex(row.get("branch_target0", "0"), 0),
                     branch_target1=safe_hex(row.get("branch_target1", "0"), 0),
                     jump_target0=safe_hex(row.get("jump_target0", "0"), 0),
                     jump_target1=safe_hex(row.get("jump_target1", "0"), 0),
-                    mem0_re=row.get("mem0_re", "0") not in ("0", "false", "False", "", None),
-                    mem0_we=row.get("mem0_we", "0") not in ("0", "false", "False", "", None),
-                    mem1_re=row.get("mem1_re", "0") not in ("0", "false", "False", "", None),
-                    mem1_we=row.get("mem1_we", "0") not in ("0", "false", "False", "", None),
+                    mem0_re=parse_bool(row.get("mem0_re", "0")),
+                    mem0_we=parse_bool(row.get("mem0_we", "0")),
+                    mem1_re=parse_bool(row.get("mem1_re", "0")),
+                    mem1_we=parse_bool(row.get("mem1_we", "0")),
                     mem_addr0=safe_hex(row.get("mem_addr0", "0"), 0),
                     mem_addr1=safe_hex(row.get("mem_addr1", "0"), 0),
-                    fwd_rs1_0_en=row.get("fwd_rs1_0_en", "0") not in ("0", "false", "False", "", None),
-                    fwd_rs2_0_en=row.get("fwd_rs2_0_en", "0") not in ("0", "false", "False", "", None),
-                    fwd_rs1_1_src=int(row.get("fwd_rs1_1_src", "0") or 0),
-                    fwd_rs2_1_src=int(row.get("fwd_rs2_1_src", "0") or 0),
-                    stall_if=row.get("stall_if_id", "0") not in ("0", "false", "False", "", None),
-                    raw0=row.get("raw0", "0") not in ("0", "false", "False", "", None),
-                    raw1=row.get("raw1", "0") not in ("0", "false", "False", "", None),
-                    waw0=row.get("waw0", "0") not in ("0", "false", "False", "", None),
-                    waw1=row.get("waw1", "0") not in ("0", "false", "False", "", None),
-                    war0=row.get("war0", "0") not in ("0", "false", "False", "", None),
-                    war1=row.get("war1", "0") not in ("0", "false", "False", "", None),
-                    load_use0=row.get("load_use0", "0") not in ("0", "false", "False", "", None),
-                    load_use1=row.get("load_use1", "0") not in ("0", "false", "False", "", None),
+                    fwd_rs1_0_en=parse_bool(row.get("fwd_rs1_0_en", "0")),
+                    fwd_rs2_0_en=parse_bool(row.get("fwd_rs2_0_en", "0")),
+                    fwd_rs1_1_src=safe_int_field(row.get("fwd_rs1_1_src", "0"), 0),
+                    fwd_rs2_1_src=safe_int_field(row.get("fwd_rs2_1_src", "0"), 0),
+                    stall_if=parse_bool(row.get("stall_if_id", "0")),
+                    raw1=parse_bool(row.get("raw1", "0")),
+                    waw1=parse_bool(row.get("waw1", "0")),
+                    load_use0=parse_bool(row.get("load_use0", "0")),
+                    load_use1=parse_bool(row.get("load_use1", "0")),
                     busy_vec=safe_hex(row.get("busy_vec", "0"), 0),
                     load_pending_vec=safe_hex(row.get("load_pending_vec", "0"), 0),
                 )
@@ -294,6 +306,113 @@ def compute_hazards(entries: List[TraceEntry]) -> int:
     return potential_raw
 
 
+RS1_USERS = {
+    "add",
+    "sub",
+    "sll",
+    "slt",
+    "sltu",
+    "xor",
+    "srl",
+    "sra",
+    "or",
+    "and",
+    "addi",
+    "slti",
+    "sltiu",
+    "xori",
+    "ori",
+    "andi",
+    "slli",
+    "srli",
+    "srai",
+    "lb",
+    "lh",
+    "lw",
+    "lbu",
+    "lhu",
+    "sb",
+    "sh",
+    "sw",
+    "beq",
+    "bne",
+    "blt",
+    "bge",
+    "bltu",
+    "bgeu",
+    "jalr",
+}
+
+RS2_USERS = {
+    "add",
+    "sub",
+    "sll",
+    "slt",
+    "sltu",
+    "xor",
+    "srl",
+    "sra",
+    "or",
+    "and",
+    "sb",
+    "sh",
+    "sw",
+    "beq",
+    "bne",
+    "blt",
+    "bge",
+    "bltu",
+    "bgeu",
+}
+
+WRITES_RD = {
+    "add",
+    "sub",
+    "sll",
+    "slt",
+    "sltu",
+    "xor",
+    "srl",
+    "sra",
+    "or",
+    "and",
+    "addi",
+    "slti",
+    "sltiu",
+    "xori",
+    "ori",
+    "andi",
+    "slli",
+    "srli",
+    "srai",
+    "lb",
+    "lh",
+    "lw",
+    "lbu",
+    "lhu",
+    "jal",
+    "jalr",
+    "lui",
+    "auipc",
+}
+
+
+def uses_rs1(mnemonic: str) -> bool:
+    return mnemonic in RS1_USERS
+
+
+def uses_rs2(mnemonic: str) -> bool:
+    return mnemonic in RS2_USERS
+
+
+def writes_rd(mnemonic: str) -> bool:
+    return mnemonic in WRITES_RD
+
+
+def format_fwd_src(src: int) -> str:
+    return {1: "EX1", 2: "EX0"}.get(src, "REG")
+
+
 def print_timeline(entries: List[TraceEntry], prog: Dict[int, int], emit) -> None:
     header = (
         f"{'Cycle':>5} | {'PC_F':>8} | "
@@ -303,8 +422,19 @@ def print_timeline(entries: List[TraceEntry], prog: Dict[int, int], emit) -> Non
     )
     emit(header)
     emit("-" * len(header))
+    prev_exec1_fields: Optional[Dict[str, Optional[int]]] = None
+    prev_exec1_writes = False
+    prev_rd1: Optional[int] = None
+
     for e in entries:
-        note_parts = []
+        note_parts: List[str] = []
+
+        dec0_fields = decode_fields(e.decode0)
+        dec1_fields = decode_fields(e.decode1)
+        exec0_fields = decode_fields(e.exec0)
+        exec1_fields = decode_fields(e.exec1)
+
+        # Control-flow events
         if e.branch_taken0:
             note_parts.append(f"BR0->0x{e.branch_target0:08x}")
         if e.branch_taken1:
@@ -313,59 +443,96 @@ def print_timeline(entries: List[TraceEntry], prog: Dict[int, int], emit) -> Non
             note_parts.append(f"J0->0x{e.jump_target0:08x}")
         if e.jump_taken1:
             note_parts.append(f"J1->0x{e.jump_target1:08x}")
+
+        # Memory usage
         if e.mem0_re or e.mem0_we:
-            m = []
-            if e.mem0_re:
-                m.append("R")
-            if e.mem0_we:
-                m.append("W")
-            note_parts.append(f"MEM0({''.join(m)})@0x{e.mem_addr0:08x}")
+            mode = ("R" if e.mem0_re else "") + ("W" if e.mem0_we else "")
+            note_parts.append(f"MEM0({mode})@0x{e.mem_addr0:08x}")
         if e.mem1_re or e.mem1_we:
-            m = []
-            if e.mem1_re:
-                m.append("R")
-            if e.mem1_we:
-                m.append("W")
-            note_parts.append(f"MEM1({''.join(m)})@0x{e.mem_addr1:08x}")
+            mode = ("R" if e.mem1_re else "") + ("W" if e.mem1_we else "")
+            note_parts.append(f"MEM1({mode})@0x{e.mem_addr1:08x}")
+
+        # Forwarding tags
         if e.fwd_rs1_0_en:
-            note_parts.append("F0_RS1")
+            note_parts.append("F0_RS1=EX0")
         if e.fwd_rs2_0_en:
-            note_parts.append("F0_RS2")
-        if e.fwd_rs1_1_src == 1:
-            note_parts.append("F1_RS1=EX1")
-        elif e.fwd_rs1_1_src == 2:
-            note_parts.append("F1_RS1=EX0")
-        if e.fwd_rs2_1_src == 1:
-            note_parts.append("F1_RS2=EX1")
-        elif e.fwd_rs2_1_src == 2:
-            note_parts.append("F1_RS2=EX0")
-        if e.stall_if:
-            note_parts.append("STALL(load-use)")
-        if e.raw0:
-            note_parts.append("RAW0")
+            note_parts.append("F0_RS2=EX0")
+        note_parts.append(f"F1_RS1={format_fwd_src(e.fwd_rs1_1_src)}")
+        note_parts.append(f"F1_RS2={format_fwd_src(e.fwd_rs2_1_src)}")
+        if e.fwd_rs1_1_src == 1 or e.fwd_rs2_1_src == 1:
+            note_parts.append("EX1->ID1_OK")
+
+        # Scoreboard hazards
         if e.raw1:
-            note_parts.append("RAW1")
-        if e.waw0:
-            note_parts.append("WAW0")
+            note_parts.append("RAW1(scoreboard)")
         if e.waw1:
-            note_parts.append("WAW1")
-        if e.war0:
-            note_parts.append("WAR0")
-        if e.war1:
-            note_parts.append("WAR1")
+            note_parts.append("WAW1(scoreboard)")
         if e.load_use0:
             note_parts.append("LDUSE0")
         if e.load_use1:
             note_parts.append("LDUSE1")
+        if e.stall_if:
+            note_parts.append("STALL(load-use0)")
+
+        # Same-cycle illegal dependency: EX1 producing a value that ID0 consumes.
+        exec1_writes_now = writes_rd(exec1_fields["mnemonic"]) and exec1_fields["rd"] not in (None, 0)
+        violation = False
+        if exec1_writes_now:
+            rd1_now = exec1_fields["rd"]
+            if uses_rs1(dec0_fields["mnemonic"]) and dec0_fields["rs1"] == rd1_now:
+                violation = True
+            if uses_rs2(dec0_fields["mnemonic"]) and dec0_fields["rs2"] == rd1_now:
+                violation = True
+        if violation:
+            note_parts.append("VIOLATION:EX1->ID0")
+
+        # Cross-cycle EX1 producer/consumer analysis:
+        # If previous cycle's EX1 wrote rd1, check how the next cycle consumes it.
+        consumer_not_in_slot1 = False
+        expected_ex1_fwd_missing = False
+        if prev_exec1_writes and prev_rd1 is not None:
+            rd1_prev = prev_rd1
+            # Does decode0 use this register?
+            uses0 = False
+            if uses_rs1(dec0_fields["mnemonic"]) and dec0_fields["rs1"] == rd1_prev:
+                uses0 = True
+            if uses_rs2(dec0_fields["mnemonic"]) and dec0_fields["rs2"] == rd1_prev:
+                uses0 = True
+            # Does decode1 use this register?
+            uses1 = False
+            rs1_uses1 = uses_rs1(dec1_fields["mnemonic"]) and dec1_fields["rs1"] == rd1_prev
+            rs2_uses1 = uses_rs2(dec1_fields["mnemonic"]) and dec1_fields["rs2"] == rd1_prev
+            uses1 = rs1_uses1 or rs2_uses1
+
+            # If slot0 consumes the EX1 result but slot1 does not, the consumer
+            # is in the wrong slot for EX1->ID1 style tests.
+            if uses0 and not uses1:
+                consumer_not_in_slot1 = True
+
+            # If slot1 consumes the EX1 result, we expect forwarding from EX1.
+            if uses1:
+                if rs1_uses1 and e.fwd_rs1_1_src != 1:
+                    expected_ex1_fwd_missing = True
+                if rs2_uses1 and e.fwd_rs2_1_src != 1:
+                    expected_ex1_fwd_missing = True
+
+        if consumer_not_in_slot1:
+            note_parts.append("WARNING:CONSUMER_NOT_IN_SLOT1")
+        if expected_ex1_fwd_missing:
+            note_parts.append("EXPECTED_EX1_FWD_NOT_FOUND")
+
+        # Scoreboard state
         if e.busy_vec:
             note_parts.append(f"busy=0x{e.busy_vec:08x}")
         if e.load_pending_vec:
             note_parts.append(f"ldpend=0x{e.load_pending_vec:08x}")
-        # Halt marker when a SYSTEM retires
-        if decode_fields(e.exec0)["mnemonic"] == "system":
+
+        # Halt markers when a SYSTEM retires
+        if exec0_fields["mnemonic"] == "system":
             note_parts.append("HALT0")
-        if decode_fields(e.exec1)["mnemonic"] == "system":
+        if exec1_fields["mnemonic"] == "system":
             note_parts.append("HALT1")
+
         note = ";".join(note_parts)
         emit(
             f"{e.cycle:5d} | {e.pc_f:08x} | "
@@ -376,6 +543,11 @@ def print_timeline(entries: List[TraceEntry], prog: Dict[int, int], emit) -> Non
             f"{disasm(e.exec1):<12} {e.result1:08x} | "
             f"{note}"
         )
+
+        # Update previous-cycle EX1 producer view.
+        prev_exec1_fields = exec1_fields
+        prev_exec1_writes = exec1_writes_now
+        prev_rd1 = exec1_fields["rd"] if exec1_writes_now else None
 
 
 def print_program_listing(program: Dict[int, int], emit) -> None:

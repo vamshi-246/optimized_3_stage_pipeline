@@ -7,7 +7,7 @@
 
 === Pipeline Report ===
 Trace file      : sim\pipeline_trace.log
-Program hex     : C:\VAMSHI\IIT Mandi Academic Folder\IITM 5th Sem\Computer Organisation and Architecture\ICARUS\tests\slot1_load_B.hex
+Program hex     : tests\slot1_load_B.hex
 Total cycles    : 3
 Instructions    : 3
 CPI / IPC       : 1.000 / 1.000
@@ -20,6 +20,6 @@ Average busy registers    : 0.67
 --- Timeline ---
 Cycle |     PC_F | F0                 | F1                 | D0[i0]                 | D1[i1]                 | E0/R0                      | E1/R1                      | Notes
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    0 | 00000004 | lb x4, 0(x0)       | system             | lb x3, 0(x0)       i0=1 | lb x4, 0(x0)       i1=0 | nop          00000000 | nop          00000000 | LDUSE1
-    1 | 00000008 | system             | nop                | lb x4, 0(x0)       i0=1 | system             i1=1 | lb x3, 0(x0) ffffff83 | nop          00000000 | MEM0(R)@0x00000000;LDUSE1;busy=0x00000008
-   82 | 00000010 | nop                | nop                | system             i0=1 | nop                i1=1 | lb x4, 0(x0) ffffff83 | system       00000000 | MEM0(R)@0x00000000;LDUSE1;busy=0x00000010;HALT1
+    0 | 00000004 | lb x4, 0(x0)       | system             | lb x3, 0(x0)       i0=1 | lb x4, 0(x0)       i1=0 | nop          00000000 | nop          00000000 | F1_RS1=REG;F1_RS2=REG;LDUSE1
+    1 | 00000008 | system             | nop                | lb x4, 0(x0)       i0=1 | system             i1=1 | lb x3, 0(x0) ffffff83 | nop          00000000 | MEM0(R)@0x00000000;F1_RS1=REG;F1_RS2=REG;LDUSE1;busy=0x00000008
+   82 | 00000010 | nop                | nop                | system             i0=1 | nop                i1=1 | lb x4, 0(x0) ffffff83 | system       00000000 | MEM0(R)@0x00000000;F1_RS1=REG;F1_RS2=REG;LDUSE1;busy=0x00000010;HALT1

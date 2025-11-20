@@ -1,0 +1,31 @@
+--- Program (from hex) ---
+    Addr |    Instr | Disassembly
+----------------------------------------
+00000000 | 00000013 | nop
+00000004 | 00500293 | addi x5, x0, 5
+00000008 | 00000013 | nop
+0000000c | 00000013 | nop
+00000010 | 00a2c3b3 | xor x7, x5, x10
+00000014 | 00100073 | system
+
+=== Pipeline Report ===
+Trace file      : sim\pipeline_trace.log
+Program hex     : tests\ex1_id1_real.hex
+Total cycles    : 6
+Instructions    : 3
+CPI / IPC       : 2.000 / 0.500
+Branches taken  : 0
+Potential RAW hazards (decode vs prev execute): 0
+Stall cycles (load-use)   : 0
+Cycles with forwarding    : 0
+Average busy registers    : 0.33
+
+--- Timeline ---
+Cycle |     PC_F | F0                 | F1                 | D0[i0]                 | D1[i1]                 | E0/R0                      | E1/R1                      | Notes
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+    0 | 00000004 | addi x5, x0, 5     | nop                | nop                i0=1 | addi x5, x0, 5     i1=0 | nop          00000000 | nop          00000000 | F1_RS1=REG;F1_RS2=REG
+    1 | 00000008 | nop                | nop                | addi x5, x0, 5     i0=1 | nop                i1=0 | nop          00000000 | nop          00000000 | F1_RS1=REG;F1_RS2=REG
+    2 | 0000000c | nop                | xor x7, x5, x10    | nop                i0=1 | nop                i1=0 | addi x5, x0, 5 00000000 | nop          00000000 | F1_RS1=REG;F1_RS2=REG;busy=0x00000020
+    3 | 00000010 | xor x7, x5, x10    | system             | nop                i0=1 | xor x7, x5, x10    i1=0 | nop          00000000 | nop          00000000 | F1_RS1=REG;F1_RS2=REG
+    4 | 00000014 | system             | nop                | xor x7, x5, x10    i0=1 | system             i1=1 | nop          00000000 | nop          00000000 | F1_RS1=REG;F1_RS2=REG
+    5 | 0000001c | nop                | nop                | system             i0=1 | nop                i1=1 | xor x7, x5, x10 00000000 | system       00000000 | F1_RS1=REG;F1_RS2=REG;busy=0x00000080;HALT1

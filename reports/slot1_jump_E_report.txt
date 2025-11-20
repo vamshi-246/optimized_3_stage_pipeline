@@ -9,7 +9,7 @@
 
 === Pipeline Report ===
 Trace file      : sim\pipeline_trace.log
-Program hex     : C:\VAMSHI\IIT Mandi Academic Folder\IITM 5th Sem\Computer Organisation and Architecture\ICARUS\tests\slot1_jump_E.hex
+Program hex     : tests\slot1_jump_E.hex
 Total cycles    : 6
 Instructions    : 5
 CPI / IPC       : 1.200 / 0.833
@@ -22,9 +22,9 @@ Average busy registers    : 1.50
 --- Timeline ---
 Cycle |     PC_F | F0                 | F1                 | D0[i0]                 | D1[i1]                 | E0/R0                      | E1/R1                      | Notes
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    0 | 00000004 | jal x1, 8          | addi x2, x0, 1     | beq x0, x0, 8      i0=1 | jal x1, 8          i1=0 | nop          00000000 | nop          00000000 | LDUSE1
-    1 | 00000008 | addi x2, x0, 1     | addi x3, x0, 2     | jal x1, 8          i0=1 | addi x2, x0, 1     i1=1 | beq x0, x0, 8 00000000 | nop          00000000 | BR0->0x00000008;LDUSE1
-    2 | 00000008 | addi x2, x0, 1     | addi x3, x0, 2     | nop                i0=1 | nop                i1=0 | nop          00000000 | nop          00000000 | LDUSE1;busy=0x00000006
-    3 | 0000000c | addi x3, x0, 2     | system             | addi x2, x0, 1     i0=1 | addi x3, x0, 2     i1=1 | nop          00000000 | nop          00000000 | WAW0;LDUSE1;busy=0x00000006
-    4 | 00000014 | nop                | nop                | addi x3, x0, 2     i0=1 | system             i1=1 | addi x2, x0, 1 00000000 | addi x3, x0, 2 00000000 | F0_RS2;LDUSE1;busy=0x0000000e
-    5 | 0000001c | nop                | nop                | nop                i0=1 | nop                i1=1 | addi x3, x0, 2 00000000 | system       00000000 | LDUSE1;busy=0x0000000a;HALT1
+    0 | 00000004 | jal x1, 8          | addi x2, x0, 1     | beq x0, x0, 8      i0=1 | jal x1, 8          i1=0 | nop          00000000 | nop          00000000 | F1_RS1=REG;F1_RS2=REG;LDUSE1
+    1 | 00000008 | addi x2, x0, 1     | addi x3, x0, 2     | jal x1, 8          i0=1 | addi x2, x0, 1     i1=1 | beq x0, x0, 8 00000000 | nop          00000000 | BR0->0x00000008;F1_RS1=REG;F1_RS2=REG;LDUSE1
+    2 | 00000008 | addi x2, x0, 1     | addi x3, x0, 2     | nop                i0=1 | nop                i1=0 | nop          00000000 | nop          00000000 | F1_RS1=REG;F1_RS2=REG;LDUSE1;busy=0x00000006
+    3 | 0000000c | addi x3, x0, 2     | system             | addi x2, x0, 1     i0=1 | addi x3, x0, 2     i1=1 | nop          00000000 | nop          00000000 | F1_RS1=REG;F1_RS2=REG;LDUSE1;busy=0x00000006
+    4 | 00000014 | nop                | nop                | addi x3, x0, 2     i0=1 | system             i1=1 | addi x2, x0, 1 00000000 | addi x3, x0, 2 00000000 | F0_RS2=EX0;F1_RS1=REG;F1_RS2=REG;LDUSE1;busy=0x0000000e
+    5 | 0000001c | nop                | nop                | nop                i0=1 | nop                i1=1 | addi x3, x0, 2 00000000 | system       00000000 | F1_RS1=REG;F1_RS2=REG;LDUSE1;busy=0x0000000a;HALT1
