@@ -21,6 +21,7 @@
 //     ad-hoc checks in the issue unit).
 //   - WAR hazards are irrelevant in this in-order 3-stage design (reads happen
 //     before writes); they are not generated or exported.
+
 module reg_status_table (
     input  logic        clk,
     input  logic        rst,

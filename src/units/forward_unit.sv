@@ -5,6 +5,7 @@
 //   Decode-stage operands when rs1/rs2 match rd_ex.
 // - Load-use hazards are not resolved by forwarding; they are handled
 //   by the scoreboard/issue logic inserting a stall.
+
 module forward_unit (
     // Slot0 ID sources and raw register file values
     input  logic [4:0]  rs1_0_id,

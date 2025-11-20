@@ -18,14 +18,7 @@ module simple_memory #(
     output logic [31:0] data_rdata
 );
 
-  logic [31:0] mem [0:MEM_WORDS-1];
-
-  integer i;
-  initial begin
-    for (i = 0; i < MEM_WORDS; i = i + 1) begin
-      mem[i] = 32'h0;
-    end
-  end
+  (* ram_style = "block" *) logic [31:0] mem [0:MEM_WORDS-1];
 
   // Provide a simple hook for testbench initialization
   task automatic load_hex(input string filename);

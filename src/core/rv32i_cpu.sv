@@ -4,6 +4,17 @@ import rv32i_pkg::*;
 
 // rv32i_cpu: 3-stage dual-issue RV32I core with scoreboard-based hazards
 // and EX-stage writeback. Provides debug taps for the universal testbench.
+(* keep_hierarchy = "yes" *) 
+
+(* keep = "true" *) logic [31:0] alu0_in1, alu0_in2, alu0_result;
+(* keep = "true" *) logic [31:0] alu1_in1, alu1_in2, alu1_result;
+
+(* keep = "true" *) logic [31:0] fwd0_rs1_data, fwd1_rs2_data;
+
+(* keep = "true" *) logic        hazard0, hazard1;
+
+(* keep = "true" *) logic        issue_slot0, issue_slot1;
+
 module rv32i_cpu (
     input  logic        clk,
     input  logic        rst,
@@ -37,13 +48,32 @@ module rv32i_cpu (
     output logic        dbg_stall,
     output logic        dbg_fwd_rs1,
     output logic        dbg_fwd_rs2,
-    output logic [31:0] dbg_busy_vec
+    output logic [31:0] dbg_busy_vec,
+    // Additional debug/trace signals
+    output logic [31:0] pc_f,
+    output logic [31:0] pc_e,
+    output logic        issue_valid0,
+    output logic        issue_valid1,
+    output logic [31:0] opA_e,
+    output logic [31:0] opB_e,
+    output logic [31:0] result_e,
+    output logic [31:0] result_e1,
+    output logic        fwd_rs1_en,
+    output logic        fwd_rs2_en,
+    // dbg_branch_taken, dbg_jump_taken, dbg_jump_target already declared above
+    output logic        redirect,
+    output logic [31:0] addr_e,
+    output logic [31:0] store_val_e,
+    output logic [31:0] load_data_wb,
+    output logic        is_load_e,
+    output logic        is_store_e,
+    output logic        stall_if_id
 );
 
   localparam logic [31:0] NOP = 32'h00000013; // addi x0, x0, 0
 
   // Fetch stage
-  logic [31:0] pc_f;
+  // pc_f is now an output port
   logic [31:0] pc_next;
   logic [31:0] instr0_f, instr1_f;
   logic [31:0] pc_fetch;
@@ -102,9 +132,8 @@ module rv32i_cpu (
   logic [31:0] wb_data_e0, wb_data_e1;
 
   // Hazard / forwarding controls
-  logic        stall_if_id;
+  // stall_if_id, fwd_rs1_en, fwd_rs2_en are now output ports
   logic        is_load_ex;
-  logic        fwd_rs1_en, fwd_rs2_en;
   // Scoreboard signals
   logic [31:0] busy_vec;
   logic [31:0] load_pending_vec;
@@ -412,6 +441,21 @@ module rv32i_cpu (
     op2_e1 = (de1_ctrl.op2_sel == OP2_IMM) ? de1_imm : de1_rs2_val;
   end
 
+  // ALU instances for slot0 and slot1
+  alu u_alu0 (
+      .op_a   (op1_e0),
+      .op_b   (op2_e0),
+      .alu_op (de_ctrl.alu_op),
+      .result (alu_result_e0)
+  );
+
+  alu u_alu1 (
+      .op_a   (op1_e1),
+      .op_b   (op2_e1),
+      .alu_op (de1_ctrl.alu_op),
+      .result (alu_result_e1)
+  );
+
   // Branch and jump handling (slot0)
   logic branch_cmp0, branch_cmp1;
   branch_unit u_branch0 (
@@ -652,5 +696,24 @@ module rv32i_cpu (
   assign dbg_fwd_rs1      = fwd_rs1_en;
   assign dbg_fwd_rs2      = fwd_rs2_en;
   assign dbg_busy_vec     = busy_vec;
+
+  // Additional debug/trace signal assignments
+  // pc_f is assigned directly in always_ff block (no assignment needed here)
+  assign pc_e             = de_pc;
+  assign issue_valid0     = issue_slot0;
+  assign issue_valid1     = issue_slot1;
+  assign opA_e            = op1_e0;
+  assign opB_e            = op2_e0;
+  assign result_e         = wb_data_e0;
+  assign result_e1        = wb_data_e1;
+  // fwd_rs1_en and fwd_rs2_en are assigned in forward_unit (no assignment needed here)
+  // dbg_branch_taken, dbg_jump_taken, dbg_jump_target already assigned above
+  assign redirect         = redirect_taken_any;
+  assign addr_e           = addr_e0;
+  assign store_val_e      = wdata_e;
+  assign load_data_wb     = load_data_e0;
+  assign is_load_e        = is_load_ex;
+  assign is_store_e       = de_ctrl.mem_write;
+  // stall_if_id is assigned in issue_unit (no assignment needed here)
 
 endmodule

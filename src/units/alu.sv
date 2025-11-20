@@ -2,6 +2,7 @@
 
 import rv32i_pkg::*;
 
+
 module alu (
     input  logic [31:0] op_a,
     input  logic [31:0] op_b,
