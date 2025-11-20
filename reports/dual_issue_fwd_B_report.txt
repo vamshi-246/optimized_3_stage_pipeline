@@ -1,0 +1,28 @@
+--- Program (from hex) ---
+    Addr |    Instr | Disassembly
+----------------------------------------
+00000000 | 00100093 | addi x1, x0, 1
+00000004 | 001080b3 | add x1, x1, x1
+00000008 | 00500193 | addi x3, x0, 5
+0000000c | 00108233 | add x4, x1, x1
+00000010 | 00100073 | system
+
+=== Pipeline Report ===
+Trace file      : sim\pipeline_trace.log
+Program hex     : tests\dual_issue_fwd_B.hex
+Total cycles    : 4
+Instructions    : 5
+CPI / IPC       : 0.800 / 1.250
+Branches taken  : 0
+Potential RAW hazards (decode vs prev execute): 1
+Stall cycles (load-use)   : 0
+Cycles with forwarding    : 2
+Average busy registers    : 1.00
+
+--- Timeline ---
+Cycle |     PC_F | F0                 | F1                 | D0[i0]                 | D1[i1]                 | E0/R0                      | E1/R1                      | Notes
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+    0 | 00000004 | add x1, x1, x1     | addi x3, x0, 5     | addi x1, x0, 1     i0=1 | add x1, x1, x1     i1=0 | nop          00000000 | nop          00000000 | F1_RS1=REG;F1_RS2=REG;RAW1(scoreboard);WAW1(scoreboard)
+    1 | 00000004 | add x4, x1, x1     | system             | add x1, x1, x1     i0=1 | addi x3, x0, 5     i1=1 | addi x1, x0, 1 00000000 | nop          00000000 | F0_RS1=EX0;F0_RS2=EX0;F1_RS1=REG;F1_RS2=REG;busy=0x00000002
+    2 | 0000000c | nop                | nop                | add x4, x1, x1     i0=1 | system             i1=1 | add x1, x1, x1 00000000 | addi x3, x0, 5 00000000 | F0_RS1=EX0;F0_RS2=EX0;F1_RS1=REG;F1_RS2=EX0;busy=0x0000000a
+    3 | 00000014 | nop                | nop                | nop                i0=1 | nop                i1=1 | add x4, x1, x1 00000000 | system       00000000 | F1_RS1=REG;F1_RS2=REG;busy=0x00000010;HALT1

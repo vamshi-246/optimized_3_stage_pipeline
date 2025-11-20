@@ -44,16 +44,16 @@ module rv32i_cpu (
   logic [31:0] pc_f;
   logic [31:0] pc_next;
   logic [31:0] pc_plus4_f;
-  logic [31:0] pc_plus8_f;
   logic [31:0] instr0_f, instr1_f;
+  logic [31:0] pc_fetch;
 
   // Dual fetch addresses: slot0 at PC, slot1 at PC+4
-  assign instr_addr  = pc_f;
-  assign instr_addr1 = pc_f + 32'd4;
+  // Fetch uses the next PC chosen for this cycle (pc_fetch).
+  assign instr_addr  = pc_fetch;
+  assign instr_addr1 = pc_fetch + 32'd4;
   assign instr0_f    = instr_rdata;
   assign instr1_f    = instr_rdata1;
   assign pc_plus4_f  = pc_f + 32'd4;
-  assign pc_plus8_f  = pc_f + 32'd8;
 
   // Fetch/Decode pipeline registers
   logic [31:0] fd_pc;
@@ -282,7 +282,7 @@ module rv32i_cpu (
       fd_instr1 <= fd_instr1;
     end else begin
       pc_f  <= pc_next;
-      fd_pc <= pc_f;
+      fd_pc <= pc_fetch; // base PC for the pair now entering decode
       // flush both fetched instructions on branch taken
       fd_instr  <= redirect_taken_any ? NOP : instr0_f;
       fd_instr1 <= redirect_taken_any ? NOP : instr1_f;
@@ -619,8 +619,19 @@ module rv32i_cpu (
 
   // Next PC: branch target wins (slot0 priority, then slot1), otherwise advance
   // by 4 or 8 depending on whether slot1 issued in this cycle.
-  assign pc_next = redirect_taken_any ? redirect_target_any
-                                      : (issue_slot1 ? pc_plus8_f : pc_plus4_f);
+  // Next PC uses the decode base (fd_pc) to form non-overlapping pairs:
+  // - Advance by +8 when slot1 issues
+  // - Advance by +4 when only slot0 issues
+  // Branch/jump redirect still has highest priority.
+  logic [31:0] pc_seq_next;
+  assign pc_seq_next = fd_pc + (issue_slot1 ? 32'd8 : 32'd4);
+  assign pc_next = redirect_taken_any ? redirect_target_any : pc_seq_next;
+  // pc_fetch is the address pair that will be captured into IF/ID this cycle.
+  // - When the pipeline is stalled, hold fetch at the current PC.
+  // - When no valid decode information is present (e.g., right after reset),
+  //   keep fetching from the current PC.
+  assign pc_fetch = stall_if_id ? pc_f :
+                    slot0_valid ? pc_next : pc_f;
 
   // Debug/trace
   assign dbg_pc_f         = pc_f;

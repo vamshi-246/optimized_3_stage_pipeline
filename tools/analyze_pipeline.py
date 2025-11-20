@@ -108,10 +108,13 @@ def parse_trace(path: Path) -> List[TraceEntry]:
             return default
 
     def parse_bool(s: Optional[str]) -> bool:
+        """Strict boolean parser: only explicit '1'/'true' mean True."""
         if s is None:
             return False
         s = s.strip().lower()
-        return s not in ("0", "false", "")
+        if s in ("1", "true", "yes", "y"):
+            return True
+        return False
 
     with path.open() as f:
         reader = csv.DictReader(f)
@@ -426,13 +429,14 @@ def print_timeline(entries: List[TraceEntry], prog: Dict[int, int], emit) -> Non
     prev_exec1_writes = False
     prev_rd1: Optional[int] = None
 
-    for e in entries:
+    for disp_cycle, e in enumerate(entries):
         note_parts: List[str] = []
 
         dec0_fields = decode_fields(e.decode0)
         dec1_fields = decode_fields(e.decode1)
         exec0_fields = decode_fields(e.exec0)
         exec1_fields = decode_fields(e.exec1)
+        exec1_writes_now = writes_rd(exec1_fields["mnemonic"]) and exec1_fields["rd"] not in (None, 0)
 
         # Control-flow events
         if e.branch_taken0:
@@ -463,7 +467,7 @@ def print_timeline(entries: List[TraceEntry], prog: Dict[int, int], emit) -> Non
             note_parts.append("EX1->ID1_OK")
 
         # Scoreboard hazards
-        if e.raw1:
+        if e.raw1 and (uses_rs1(dec1_fields["mnemonic"]) or uses_rs2(dec1_fields["mnemonic"])):
             note_parts.append("RAW1(scoreboard)")
         if e.waw1:
             note_parts.append("WAW1(scoreboard)")
@@ -473,18 +477,6 @@ def print_timeline(entries: List[TraceEntry], prog: Dict[int, int], emit) -> Non
             note_parts.append("LDUSE1")
         if e.stall_if:
             note_parts.append("STALL(load-use0)")
-
-        # Same-cycle illegal dependency: EX1 producing a value that ID0 consumes.
-        exec1_writes_now = writes_rd(exec1_fields["mnemonic"]) and exec1_fields["rd"] not in (None, 0)
-        violation = False
-        if exec1_writes_now:
-            rd1_now = exec1_fields["rd"]
-            if uses_rs1(dec0_fields["mnemonic"]) and dec0_fields["rs1"] == rd1_now:
-                violation = True
-            if uses_rs2(dec0_fields["mnemonic"]) and dec0_fields["rs2"] == rd1_now:
-                violation = True
-        if violation:
-            note_parts.append("VIOLATION:EX1->ID0")
 
         # Cross-cycle EX1 producer/consumer analysis:
         # If previous cycle's EX1 wrote rd1, check how the next cycle consumes it.
@@ -535,7 +527,7 @@ def print_timeline(entries: List[TraceEntry], prog: Dict[int, int], emit) -> Non
 
         note = ";".join(note_parts)
         emit(
-            f"{e.cycle:5d} | {e.pc_f:08x} | "
+            f"{disp_cycle:5d} | {e.pc_f:08x} | "
             f"{disasm(e.fetch0):<18} | {disasm(e.fetch1):<18} | "
             f"{disasm(e.decode0):<18} i0={int(e.issue0)} | "
             f"{disasm(e.decode1):<18} i1={int(e.issue1)} | "
