@@ -112,6 +112,10 @@ module rv32i_cpu (
   logic        prod_is_load_rs1, prod_is_load_rs2;
   logic [31:0] busy_vec;
   logic [31:0] load_pending_vec;
+  logic        raw_hazard0, raw_hazard1;
+  logic        waw_hazard0, waw_hazard1;
+  logic        war_hazard0, war_hazard1;
+  logic        load_use0_h, load_use1_h;
   // Issue decisions
   logic        issue_slot0_raw, issue_slot1_raw;
   logic        issue_slot0, issue_slot1;
@@ -185,20 +189,37 @@ module rv32i_cpu (
   reg_status_table u_reg_status_table (
       .clk                (clk),
       .rst                (rst),
-      .rd0_write_en_ex    (de_ctrl.reg_write),
-      .rd0_ex             (de_rd),
-      .is_load0_ex        (is_load_ex),
-      .rd1_write_en_ex    (de1_ctrl.reg_write),
-      .rd1_ex             (de1_rd),
-      .is_load1_ex        (de1_ctrl.mem_read && !de1_ctrl.mem_write),
-      .rs1_id             (rs1_d),
-      .rs2_id             (rs2_d),
-      .use_rs1_id         (use_rs1_d),
-      .use_rs2_id         (use_rs2_d),
-      .hazard_rs1         (hazard_rs1),
-      .hazard_rs2         (hazard_rs2),
-      .producer_is_load_rs1(prod_is_load_rs1),
-      .producer_is_load_rs2(prod_is_load_rs2),
+      // Issue-stage info (already gated by issue_slot*)
+      .issue0             (issue_slot0),
+      .issue1             (issue_slot1),
+      .reg_write0_issue   (ctrl_d.reg_write),
+      .reg_write1_issue   (ctrl1_d.reg_write),
+      .rd0_issue          (rd_d),
+      .rd1_issue          (rd1_d),
+      .is_load0_issue     (ctrl_d.mem_read && !ctrl_d.mem_write),
+      .is_load1_issue     (ctrl1_d.mem_read && !ctrl1_d.mem_write),
+      .rs1_0              (rs1_d),
+      .rs2_0              (rs2_d),
+      .rs1_1              (rs1_1_d),
+      .rs2_1              (rs2_1_d),
+      .use_rs1_0          (use_rs1_d),
+      .use_rs2_0          (use_rs2_d),
+      .use_rs1_1          (use_rs1_1_d),
+      .use_rs2_1          (use_rs2_1_d),
+      // Writeback completions this cycle
+      .wb0_we             (de_ctrl.reg_write && (de_rd != 5'd0)),
+      .wb0_rd             (de_rd),
+      .wb1_we             (de1_ctrl.reg_write && (de1_rd != 5'd0)),
+      .wb1_rd             (de1_rd),
+      // Hazard outputs
+      .raw_hazard0        (raw_hazard0),
+      .raw_hazard1        (raw_hazard1),
+      .waw_hazard0        (waw_hazard0),
+      .waw_hazard1        (waw_hazard1),
+      .war_hazard0        (war_hazard0),
+      .war_hazard1        (war_hazard1),
+      .load_use0          (load_use0_h),
+      .load_use1          (load_use1_h),
       .busy_vec           (busy_vec),
       .load_pending_vec   (load_pending_vec)
   );
@@ -217,8 +238,14 @@ module rv32i_cpu (
       .rd_1           (rd1_d),
       .use_rs1_1      (use_rs1_1_d),
       .use_rs2_1      (use_rs2_1_d),
-      .busy_vec       (busy_vec),
-      .load_pending_vec(load_pending_vec),
+      .raw_hazard0    (raw_hazard0),
+      .raw_hazard1    (raw_hazard1),
+      .waw_hazard0    (waw_hazard0),
+      .waw_hazard1    (waw_hazard1),
+      .war_hazard0    (war_hazard0),
+      .war_hazard1    (war_hazard1),
+      .load_use0      (load_use0_h),
+      .load_use1      (load_use1_h),
       .issue_slot0    (issue_slot0_raw),
       .issue_slot1    (issue_slot1_raw),
       .stall_if       (stall_if_id)

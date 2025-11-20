@@ -21,7 +21,7 @@ Average busy registers    : 0.75
 --- Timeline ---
 Cycle |     PC_F | F0                 | F1                 | D0[i0]                 | D1[i1]                 | E0/R0                      | E1/R1                      | Notes
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    0 | 00000004 | addi x2, x1, 3     | add x3, x1, x2     | addi x1, x0, 5     i0=1 | addi x2, x1, 3     i1=0 | nop          00000000 | nop          00000000 | 
-    1 | 00000008 | add x3, x1, x2     | system             | addi x2, x1, 3     i0=1 | add x3, x1, x2     i1=0 | addi x1, x0, 5 00000000 | nop          00000000 | F0_RS1;F1_RS1=EX0;busy=0x00000002
-    2 | 0000000c | system             | nop                | add x3, x1, x2     i0=1 | system             i1=1 | addi x2, x1, 3 00000000 | nop          00000000 | F0_RS2;busy=0x00000004
-    3 | 00000014 | nop                | nop                | system             i0=1 | nop                i1=1 | add x3, x1, x2 00000000 | system       00000000 | busy=0x00000008;HALT1
+    0 | 00000004 | addi x2, x1, 3     | add x3, x1, x2     | addi x1, x0, 5     i0=1 | addi x2, x1, 3     i1=0 | nop          00000000 | nop          00000000 | RAW1;LDUSE1
+    1 | 00000008 | add x3, x1, x2     | system             | addi x2, x1, 3     i0=1 | add x3, x1, x2     i1=0 | addi x1, x0, 5 00000000 | nop          00000000 | F0_RS1;F1_RS1=EX0;RAW1;LDUSE1;busy=0x00000002
+    2 | 0000000c | system             | nop                | add x3, x1, x2     i0=1 | system             i1=1 | addi x2, x1, 3 00000000 | nop          00000000 | F0_RS2;LDUSE1;busy=0x00000004
+    3 | 00000014 | nop                | nop                | system             i0=1 | nop                i1=1 | add x3, x1, x2 00000000 | system       00000000 | LDUSE1;busy=0x00000008;HALT1

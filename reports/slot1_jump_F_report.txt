@@ -18,15 +18,15 @@ Branches taken  : 0
 Potential RAW hazards (decode vs prev execute): 1
 Stall cycles (load-use)   : 0
 Cycles with forwarding    : 0
-Average busy registers    : 0.43
+Average busy registers    : 1.29
 
 --- Timeline ---
 Cycle |     PC_F | F0                 | F1                 | D0[i0]                 | D1[i1]                 | E0/R0                      | E1/R1                      | Notes
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    0 | 00000004 | nop                | addi x5, x4, 1     | lw x4, 0(x0)       i0=1 | nop                i1=0 | nop          00000000 | nop          00000000 | 
-    1 | 00000008 | addi x5, x4, 1     | jal x6, 8          | nop                i0=1 | addi x5, x4, 1     i1=0 | lw x4, 0(x0) 00002203 | nop          00000000 | MEM0(R)@0x00000000;busy=0x00000010;ldpend=0x00000010
-    2 | 0000000c | jal x6, 8          | addi x7, x0, 3     | addi x5, x4, 1     i0=1 | jal x6, 8          i1=1 | nop          00000000 | nop          00000000 | 
-    3 | 00000014 | system             | nop                | jal x6, 8          i0=1 | addi x7, x0, 3     i1=1 | addi x5, x4, 1 00000000 | jal x6, 8    00000010 | J1->0x00000014;busy=0x00000060
-    4 | 00000014 | system             | nop                | nop                i0=1 | nop                i1=0 | nop          00000000 | nop          00000000 | 
-    5 | 00000018 | nop                | nop                | system             i0=1 | nop                i1=1 | nop          00000000 | nop          00000000 | 
-    6 | 00000020 | nop                | nop                | nop                i0=1 | nop                i1=1 | system       00000000 | nop          00000000 | HALT0
+    0 | 00000004 | nop                | addi x5, x4, 1     | lw x4, 0(x0)       i0=1 | nop                i1=0 | nop          00000000 | nop          00000000 | LDUSE1
+    1 | 00000008 | addi x5, x4, 1     | jal x6, 8          | nop                i0=1 | addi x5, x4, 1     i1=0 | lw x4, 0(x0) 00002203 | nop          00000000 | MEM0(R)@0x00000000;LDUSE1;busy=0x00000010
+  102 | 0000000c | jal x6, 8          | addi x7, x0, 3     | addi x5, x4, 1     i0=1 | jal x6, 8          i1=1 | nop          00000000 | nop          00000000 | LDUSE1
+    3 | 00000014 | system             | nop                | jal x6, 8          i0=1 | addi x7, x0, 3     i1=1 | addi x5, x4, 1 00000000 | jal x6, 8    00000010 | J1->0x00000014;LDUSE1;busy=0x00000060
+    4 | 00000014 | system             | nop                | nop                i0=1 | nop                i1=0 | nop          00000000 | nop          00000000 | LDUSE1;busy=0x000000c0
+    5 | 00000018 | nop                | nop                | system             i0=1 | nop                i1=1 | nop          00000000 | nop          00000000 | LDUSE1;busy=0x000000c0
+    6 | 00000020 | nop                | nop                | nop                i0=1 | nop                i1=1 | system       00000000 | nop          00000000 | LDUSE1;busy=0x000000c0;HALT0

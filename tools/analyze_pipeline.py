@@ -51,6 +51,14 @@ class TraceEntry:
     fwd_rs1_1_src: int
     fwd_rs2_1_src: int
     stall_if: bool
+    raw0: bool
+    raw1: bool
+    waw0: bool
+    waw1: bool
+    war0: bool
+    war1: bool
+    load_use0: bool
+    load_use1: bool
     busy_vec: int
     load_pending_vec: int
 
@@ -133,6 +141,14 @@ def parse_trace(path: Path) -> List[TraceEntry]:
                     fwd_rs1_1_src=int(row.get("fwd_rs1_1_src", "0") or 0),
                     fwd_rs2_1_src=int(row.get("fwd_rs2_1_src", "0") or 0),
                     stall_if=row.get("stall_if_id", "0") not in ("0", "false", "False", "", None),
+                    raw0=row.get("raw0", "0") not in ("0", "false", "False", "", None),
+                    raw1=row.get("raw1", "0") not in ("0", "false", "False", "", None),
+                    waw0=row.get("waw0", "0") not in ("0", "false", "False", "", None),
+                    waw1=row.get("waw1", "0") not in ("0", "false", "False", "", None),
+                    war0=row.get("war0", "0") not in ("0", "false", "False", "", None),
+                    war1=row.get("war1", "0") not in ("0", "false", "False", "", None),
+                    load_use0=row.get("load_use0", "0") not in ("0", "false", "False", "", None),
+                    load_use1=row.get("load_use1", "0") not in ("0", "false", "False", "", None),
                     busy_vec=safe_hex(row.get("busy_vec", "0"), 0),
                     load_pending_vec=safe_hex(row.get("load_pending_vec", "0"), 0),
                 )
@@ -325,6 +341,22 @@ def print_timeline(entries: List[TraceEntry], prog: Dict[int, int], emit) -> Non
             note_parts.append("F1_RS2=EX0")
         if e.stall_if:
             note_parts.append("STALL(load-use)")
+        if e.raw0:
+            note_parts.append("RAW0")
+        if e.raw1:
+            note_parts.append("RAW1")
+        if e.waw0:
+            note_parts.append("WAW0")
+        if e.waw1:
+            note_parts.append("WAW1")
+        if e.war0:
+            note_parts.append("WAR0")
+        if e.war1:
+            note_parts.append("WAR1")
+        if e.load_use0:
+            note_parts.append("LDUSE0")
+        if e.load_use1:
+            note_parts.append("LDUSE1")
         if e.busy_vec:
             note_parts.append(f"busy=0x{e.busy_vec:08x}")
         if e.load_pending_vec:

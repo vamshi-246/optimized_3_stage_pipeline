@@ -32,9 +32,15 @@ module issue_unit (
     input  logic       use_rs1_1,
     input  logic       use_rs2_1,
 
-    // Scoreboard view
-    input  logic [31:0] busy_vec,
-    input  logic [31:0] load_pending_vec,
+    // Scoreboard-derived hazards
+    input  logic       raw_hazard0,
+    input  logic       raw_hazard1,
+    input  logic       waw_hazard0,
+    input  logic       waw_hazard1,
+    input  logic       war_hazard0,
+    input  logic       war_hazard1,
+    input  logic       load_use0,
+    input  logic       load_use1,
 
     // Issue decisions
     output logic       issue_slot0,
@@ -42,28 +48,12 @@ module issue_unit (
     output logic       stall_if
 );
 
-  // Helper functions
-  function automatic logic is_busy(input logic [31:0] v, input logic [4:0] idx);
-    return v[idx];
-  endfunction
-
-  function automatic logic is_load_pending(input logic [31:0] v, input logic [4:0] idx);
-    return v[idx];
-  endfunction
-
   // Local signals for hazard computation
   logic mem0, mem1;
   logic branch0, branch1;
   logic jump0, jump1;
-  logic write0, write1;
-  logic rs1_0_valid, rs2_0_valid;
-  logic rs1_1_valid, rs2_1_valid;
-  logic load0;
-  logic load_use0;
-  logic raw10, waw10, war10, load_use_same_cycle;
-  logic sb_raw1, sb_waw1, sb_load_use1;
-  logic mem_conflict;
   logic slot0_ctrl_flow;
+  logic mem_conflict;
   logic hazard1;
 
   always_comb begin
@@ -79,71 +69,11 @@ module issue_unit (
     jump0   = ctrl0.jump;
     jump1   = ctrl1.jump;
 
-    write0 = ctrl0.reg_write && (rd_0 != 5'd0);
-    write1 = ctrl1.reg_write && (rd_1 != 5'd0);
-
-    rs1_0_valid = use_rs1_0 && (rs1_0 != 5'd0);
-    rs2_0_valid = use_rs2_0 && (rs2_0 != 5'd0);
-    rs1_1_valid = use_rs1_1 && (rs1_1 != 5'd0);
-    rs2_1_valid = use_rs2_1 && (rs2_1 != 5'd0);
-
-    load0 = ctrl0.mem_read && ctrl0.reg_write && (rd_0 != 5'd0);
-
-    // Scoreboard-based load-use hazard for slot0 (older)
-    load_use0 = 1'b0;
-    if (rs1_0_valid && is_busy(busy_vec, rs1_0) &&
-        is_load_pending(load_pending_vec, rs1_0)) begin
-      load_use0 = 1'b1;
-    end
-    if (rs2_0_valid && is_busy(busy_vec, rs2_0) &&
-        is_load_pending(load_pending_vec, rs2_0)) begin
-      load_use0 = 1'b1;
-    end
-
-    // Stall pipeline only for slot0 load-use hazards vs older loads
-    stall_if = load_use0;
-
-    // RAW: slot1 reads a value written by slot0 (same-cycle pair)
-    raw10 = 1'b0;
-    if (write0) begin
-      if (rs1_1_valid && (rs1_1 == rd_0)) raw10 = 1'b1;
-      if (rs2_1_valid && (rs2_1 == rd_0)) raw10 = 1'b1;
-    end
-
-    // WAW: both write same destination (same-cycle pair)
-    waw10 = write0 && write1 && (rd_1 == rd_0);
-
-    // WAR: slot1 writes a register read by slot0 (same-cycle pair)
-    war10 = write1 &&
-            ((use_rs1_0 && (rd_1 == rs1_0)) ||
-             (use_rs2_0 && (rd_1 == rs2_0)));
-
-    // Load-use within the same cycle: slot0 is load, slot1 uses rd_0
-    load_use_same_cycle = 1'b0;
-    if (load0) begin
-      if (rs1_1_valid && (rs1_1 == rd_0)) load_use_same_cycle = 1'b1;
-      if (rs2_1_valid && (rs2_1 == rd_0)) load_use_same_cycle = 1'b1;
-    end
-
-    // Scoreboard hazards for slot1 vs older instructions (includes EX0 + EX1)
-    sb_raw1 = 1'b0;
-    if (rs1_1_valid && is_busy(busy_vec, rs1_1)) sb_raw1 = 1'b1;
-    if (rs2_1_valid && is_busy(busy_vec, rs2_1)) sb_raw1 = 1'b1;
-
-    sb_waw1 = write1 && is_busy(busy_vec, rd_1);
-
-    sb_load_use1 = 1'b0;
-    if (rs1_1_valid && is_busy(busy_vec, rs1_1) &&
-        is_load_pending(load_pending_vec, rs1_1)) begin
-      sb_load_use1 = 1'b1;
-    end
-    if (rs2_1_valid && is_busy(busy_vec, rs2_1) &&
-        is_load_pending(load_pending_vec, rs2_1)) begin
-      sb_load_use1 = 1'b1;
-    end
-
-    // Structural hazard: single memory port (slot0 priority)
+    // Structural: single data port
     mem_conflict = mem0 && mem1;
+
+    // Stall pipeline only for load-use hazard on slot0
+    stall_if = load_use0;
 
     // SYSTEM in slot1 must never be blocked; allow it to issue regardless of
     // other hazards (so it can reach execute and halt).
@@ -151,35 +81,20 @@ module issue_unit (
       hazard1     = 1'b0;
       issue_slot1 = 1'b1;
     end else begin
-      // Combined hazard view for slot1
-      hazard1 = raw10 || waw10 || war10 ||
-                load_use_same_cycle ||
-                sb_raw1 || sb_waw1 || sb_load_use1 ||
-                mem_conflict;
-
-      // Restrict slot1 reg writers: LUI/AUIPC still forbidden.
-      if (write1 && (ctrl1.is_lui || ctrl1.is_auipc)) begin
-        hazard1 = 1'b1;
-      end
-
-      // Slot0 control flow (branch/jump) blocks slot1 control flow.
       slot0_ctrl_flow = branch0 || jump0;
 
-      // If slot1 is a branch, ensure slot0 not branch/jump and slot1 not using mem.
-      if (branch1) begin
-        if (slot0_ctrl_flow) hazard1 = 1'b1;
-        if (mem1) hazard1 = 1'b1;
-      end
+      hazard1 = raw_hazard1 || waw_hazard1 || war_hazard1 ||
+                load_use1   || mem_conflict;
 
-      // Slot1 jumps (jal/jalr) obey same hazards as branches.
-      if (jump1) begin
-        if (slot0_ctrl_flow) hazard1 = 1'b1;
-        if (mem1) hazard1 = 1'b1;
-        if (ctrl1.is_lui || ctrl1.is_auipc) hazard1 = 1'b1;
-      end
+      // Control flow ordering: slot1 branch/jump blocked if slot0 is branch/jump
+      if ((branch1 || jump1) && slot0_ctrl_flow) hazard1 = 1'b1;
 
-      // If slot1 is a load, ensure slot0 is not a memory op (mem_conflict already caught)
-      // and all hazards are clear.
+      // Slot1 still forbids LUI/AUIPC as per prior stage rules.
+      if (ctrl1.is_lui || ctrl1.is_auipc) hazard1 = 1'b1;
+
+      // Branch/jump may not coexist with memory in slot1
+      if ((branch1 || jump1) && mem1) hazard1 = 1'b1;
+
       issue_slot1 = !hazard1;
     end
   end

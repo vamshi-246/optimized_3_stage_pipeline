@@ -17,14 +17,14 @@ Branches taken  : 0
 Potential RAW hazards (decode vs prev execute): 0
 Stall cycles (load-use)   : 0
 Cycles with forwarding    : 0
-Average busy registers    : 0.83
+Average busy registers    : 1.83
 
 --- Timeline ---
 Cycle |     PC_F | F0                 | F1                 | D0[i0]                 | D1[i1]                 | E0/R0                      | E1/R1                      | Notes
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    0 | 00000004 | jal x11, 4         | addi x12, x0, 2    | addi x10, x0, 1    i0=1 | jal x11, 4         i1=1 | nop          00000000 | nop          00000000 | 
-    1 | 0000000c | addi x13, x0, 3    | system             | jal x11, 4         i0=1 | addi x12, x0, 2    i1=1 | addi x10, x0, 1 00000000 | jal x11, 4   00000008 | J1->0x00000008;busy=0x00000c00
-    2 | 00000008 | addi x12, x0, 2    | addi x13, x0, 3    | nop                i0=1 | nop                i1=0 | nop          00000000 | nop          00000000 | 
-    3 | 0000000c | addi x13, x0, 3    | system             | addi x12, x0, 2    i0=1 | addi x13, x0, 3    i1=1 | nop          00000000 | nop          00000000 | 
-    4 | 00000014 | nop                | nop                | addi x13, x0, 3    i0=1 | system             i1=1 | addi x12, x0, 2 00000000 | addi x13, x0, 3 00000000 | busy=0x00003000
-    5 | 0000001c | nop                | nop                | nop                i0=1 | nop                i1=1 | addi x13, x0, 3 00000000 | system       00000000 | busy=0x00002000;HALT1
+    0 | 00000004 | jal x11, 4         | addi x12, x0, 2    | addi x10, x0, 1    i0=1 | jal x11, 4         i1=1 | nop          00000000 | nop          00000000 | LDUSE1
+    1 | 0000000c | addi x13, x0, 3    | system             | jal x11, 4         i0=1 | addi x12, x0, 2    i1=1 | addi x10, x0, 1 00000000 | jal x11, 4   00000008 | J1->0x00000008;LDUSE1;busy=0x00000c00
+    2 | 00000008 | addi x12, x0, 2    | addi x13, x0, 3    | nop                i0=1 | nop                i1=0 | nop          00000000 | nop          00000000 | LDUSE1;busy=0x00001800
+    3 | 0000000c | addi x13, x0, 3    | system             | addi x12, x0, 2    i0=1 | addi x13, x0, 3    i1=1 | nop          00000000 | nop          00000000 | WAW0;LDUSE1;busy=0x00001800
+    4 | 00000014 | nop                | nop                | addi x13, x0, 3    i0=1 | system             i1=1 | addi x12, x0, 2 00000000 | addi x13, x0, 3 00000000 | LDUSE1;busy=0x00003800
+    5 | 0000001c | nop                | nop                | nop                i0=1 | nop                i1=1 | addi x13, x0, 3 00000000 | system       00000000 | LDUSE1;busy=0x00002800;HALT1

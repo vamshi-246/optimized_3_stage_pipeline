@@ -3,6 +3,7 @@ Param(
     [int]$MaxCycles = 200,
     [string]$Trace = "sim/pipeline_trace.log",
     [string]$Vcd = "sim/out.vcd",
+    [string]$Out = "",
     [switch]$NoShow
 )
 
@@ -52,6 +53,7 @@ if (-not (Test-Path $Trace)) {
 
 $analyzeArgs = @("--trace", $Trace, "--hex", $Hex)
 if (-not $NoShow) { $analyzeArgs += "--show" }
+if ($Out -and $Out.Trim() -ne "") { $analyzeArgs += @("--out", $Out) }
 
 Write-Host "Analyzing pipeline trace..."
 python "tools/analyze_pipeline.py" @analyzeArgs

@@ -148,7 +148,7 @@ module universal_tb;
   initial begin
     trace_fd = $fopen("sim/pipeline_trace.log", "w");
     $fwrite(trace_fd,
-            "cycle,pc_f,fetch0,fetch1,decode0,decode1,issue0,issue1,exec0,exec1,result0,result1,branch_taken0,branch_taken1,jump_taken0,jump_taken1,branch_target0,branch_target1,jump_target0,jump_target1,mem0_re,mem0_we,mem1_re,mem1_we,mem_addr0,mem_addr1,fwd_rs1_0_en,fwd_rs2_0_en,fwd_rs1_1_src,fwd_rs2_1_src,stall_if_id,busy_vec,load_pending_vec\n");
+            "cycle,pc_f,fetch0,fetch1,decode0,decode1,issue0,issue1,exec0,exec1,result0,result1,branch_taken0,branch_taken1,jump_taken0,jump_taken1,branch_target0,branch_target1,jump_target0,jump_target1,mem0_re,mem0_we,mem1_re,mem1_we,mem_addr0,mem_addr1,fwd_rs1_0_en,fwd_rs2_0_en,fwd_rs1_1_src,fwd_rs2_1_src,stall_if_id,raw0,raw1,waw0,waw1,war0,war1,load_use0,load_use1,busy_vec,load_pending_vec\n");
   end
 
   // Cycle-by-cycle tracing and stop conditions
@@ -189,7 +189,7 @@ module universal_tb;
 
       $fwrite(
           trace_fd,
-          "%0d,%s,%s,%s,%s,%s,%0d,%0d,%s,%s,%s,%s,%0d,%0d,%0d,%0d,%s,%s,%s,%s,%0d,%0d,%0d,%0d,%s,%s,%0d,%0d,%0d,%0d,%0d,%s,%s\n",
+          "%0d,%s,%s,%s,%s,%s,%0d,%0d,%s,%s,%s,%s,%0d,%0d,%0d,%0d,%s,%s,%s,%s,%0d,%0d,%0d,%0d,%s,%s,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%s,%s\n",
           cycle_count,
           fmt_hex(dbg_pc_f),
           fmt_hex(dbg_instr_f),
@@ -221,6 +221,14 @@ module universal_tb;
           fwd_rs1_1_src,
           fwd_rs2_1_src,
           dbg_stall,
+          dut.raw_hazard0,
+          dut.raw_hazard1,
+          dut.waw_hazard0,
+          dut.waw_hazard1,
+          dut.war_hazard0,
+          dut.war_hazard1,
+          dut.load_use0_h,
+          dut.load_use1_h,
           fmt_hex(dbg_busy_vec),
           fmt_hex(dut.load_pending_vec)
       );
