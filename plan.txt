@@ -1,6 +1,6 @@
 ✅ STAGE 1 BASELINE RISC-V PIPELINE
-✅ Stage 2  (add hazard detection + stalls)
-✅ Stage 3  (add full forwarding)
-✅ Stage 4  (add scoreboard)
-✅ Stage 5  (add dual issue)
-✅ Stage 6  (add performance analyzer upgrades)
+✅ Stage 2 prompt (add hazard detection + stalls)
+✅ Stage 3 prompt (add full forwarding)
+✅ Stage 4 prompt (add scoreboard)
+✅ Stage 5 prompt (add dual issue)
+✅ Stage 6 prompt (add performance analyzer upgrades)

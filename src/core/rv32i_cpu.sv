@@ -6,7 +6,14 @@ import rv32i_pkg::*;
 // and EX-stage writeback. Provides debug taps for the universal testbench.
 (* keep_hierarchy = "yes" *) 
 
+(* keep = "true" *) logic [31:0] alu0_in1, alu0_in2, alu0_result;
+(* keep = "true" *) logic [31:0] alu1_in1, alu1_in2, alu1_result;
 
+(* keep = "true" *) logic [31:0] fwd0_rs1_data, fwd1_rs2_data;
+
+(* keep = "true" *) logic        hazard0, hazard1;
+
+(* keep = "true" *) logic        issue_slot0, issue_slot1;
 
 module rv32i_cpu (
     input  logic        clk,
