@@ -24,7 +24,7 @@ module universal_tb;
   // Simulation controls
   integer cycle_count = 0;
   integer max_cycles  = 200;
-  string  hexfile     = "C:/VAMSHI/IIT Mandi Academic Folder/IITM 5th Sem/Computer Organisation and Architecture/ICARUS/tests/loop_unrolling_A.hex";
+  string  hexfile     = "C:/VAMSHI/IIT Mandi Academic Folder/IITM 5th Sem/Computer Organisation and Architecture/ICARUS/tests/allinone.hex";
   bit     debug       = 1'b0;
 
   integer trace_fd;
@@ -227,42 +227,43 @@ module universal_tb;
         end
       end
 
-      $fwrite(trace_fd, "%0d,%s,%s,%s,%s,%s,%s,%0d,%0d,%s,%s,%s,%s,%s,%s,%s,%s,%0d,%0d,%0d,%0d,%s,%s,%s,%s,%0d,%0d,%0d,%0d,%0d,%0d,%s,%s,%s,%s,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%s,%s\n",
+      // Use direct hex format to avoid vvp string handling issues
+      $fwrite(trace_fd, "%0d,%08h,%08h,%08h,%08h,%08h,%08h,%0d,%0d,%08h,%08h,%08h,%08h,%08h,%08h,%08h,%08h,%0d,%0d,%0d,%0d,%08h,%08h,%08h,%08h,%0d,%0d,%0d,%0d,%0d,%0d,%08h,%08h,%08h,%08h,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%08h,%08h\n",
           cycle_count,
-          fmt_hex(pc_f),
-          fmt_hex(pc_e),
-          fmt_hex(dut.fd_instr),
-          fmt_hex(dut.fd_instr1),
-          fmt_hex(dut.de_instr),
-          fmt_hex(dut.de1_instr),
+          pc_f,
+          pc_e,
+          dut.fd_instr,
+          dut.fd_instr1,
+          dut.de_instr,
+          dut.de1_instr,
           issue_valid0,
           issue_valid1,
-          fmt_hex(dbg_instr_e),
-          fmt_hex(dbg_instr_e1),
-          fmt_hex(dbg_result_e),
-          fmt_hex(dbg_result_e1),
-          fmt_hex(result_e),
-          fmt_hex(result_e1),
-          fmt_hex(opA_e),
-          fmt_hex(opB_e),
+          dbg_instr_e,
+          dbg_instr_e1,
+          dbg_result_e,
+          dbg_result_e1,
+          result_e,
+          result_e1,
+          opA_e,
+          opB_e,
           dbg_branch_taken,
           dbg_branch_taken1,
           dbg_jump_taken,
           dbg_jump_taken1,
-          fmt_hex(dut.branch_target_e),
-          fmt_hex(dut.branch_target_e1),
-          fmt_hex(dbg_jump_target),
-          fmt_hex(dbg_jump_target1),
+          dut.branch_target_e,
+          dut.branch_target_e1,
+          dbg_jump_target,
+          dbg_jump_target1,
           redirect,
           (dut.use_mem0 && dut.de_ctrl.mem_read),
           (dut.use_mem0 && dut.de_ctrl.mem_write),
           (dut.use_mem1 && dut.de1_ctrl.mem_read),
           (dut.use_mem1 && dut.de1_ctrl.mem_write),
-          fmt_hex(dut.addr_e0),
-          fmt_hex(dut.addr_e1),
-          fmt_hex(addr_e),
-          fmt_hex(store_val_e),
-          fmt_hex(load_data_wb),
+          dut.addr_e0,
+          dut.addr_e1,
+          addr_e,
+          store_val_e,
+          load_data_wb,
           is_load_e,
           is_store_e,
           dbg_fwd_rs1,
@@ -276,8 +277,8 @@ module universal_tb;
           dut.waw_hazard1,
           dut.load_use0_h,
           dut.load_use1_h,
-          fmt_hex(dbg_busy_vec),
-          fmt_hex(dut.load_pending_vec)
+          dbg_busy_vec,
+          dut.load_pending_vec
       );
 
       if (debug) begin

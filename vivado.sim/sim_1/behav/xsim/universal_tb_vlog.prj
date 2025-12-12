@@ -1,0 +1,20 @@
+# compile verilog/system verilog design source files
+sv xil_defaultlib  \
+"../../../../../ICARUS/src/core/rv32i_pkg.sv" \
+"../../../../../ICARUS/src/units/alu.sv" \
+"../../../../../ICARUS/src/units/branch_unit.sv" \
+"../../../../../ICARUS/src/units/decoder.sv" \
+"../../../../../ICARUS/src/units/forward_unit.sv" \
+"../../../../../ICARUS/src/units/imm_gen.sv" \
+"../../../../../ICARUS/src/units/issue_unit.sv" \
+"../../../../../ICARUS/src/units/reg_status_table.sv" \
+"../../../../../ICARUS/src/units/regfile.sv" \
+"../../../../../ICARUS/src/core/rv32i_cpu.sv" \
+"../../../../../ICARUS/sim/simple_memory.sv" \
+"../../../../../ICARUS/sim/universal_tb.sv" \
+
+# compile glbl module
+verilog xil_defaultlib "glbl.v"
+
+# Do not sort compile order
+nosort

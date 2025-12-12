@@ -1,0 +1,26 @@
+INFO: [VRFC 10-2263] Analyzing SystemVerilog file "C:/VAMSHI/IIT Mandi Academic Folder/IITM 5th Sem/Computer Organisation and Architecture/ICARUS/src/core/rv32i_pkg.sv" into library xil_defaultlib
+INFO: [VRFC 10-2263] Analyzing SystemVerilog file "C:/VAMSHI/IIT Mandi Academic Folder/IITM 5th Sem/Computer Organisation and Architecture/ICARUS/src/units/alu.sv" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module alu
+INFO: [VRFC 10-2263] Analyzing SystemVerilog file "C:/VAMSHI/IIT Mandi Academic Folder/IITM 5th Sem/Computer Organisation and Architecture/ICARUS/src/units/branch_unit.sv" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module branch_unit
+INFO: [VRFC 10-2263] Analyzing SystemVerilog file "C:/VAMSHI/IIT Mandi Academic Folder/IITM 5th Sem/Computer Organisation and Architecture/ICARUS/src/units/decoder.sv" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module decoder
+INFO: [VRFC 10-2263] Analyzing SystemVerilog file "C:/VAMSHI/IIT Mandi Academic Folder/IITM 5th Sem/Computer Organisation and Architecture/ICARUS/src/units/forward_unit.sv" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module forward_unit
+INFO: [VRFC 10-2263] Analyzing SystemVerilog file "C:/VAMSHI/IIT Mandi Academic Folder/IITM 5th Sem/Computer Organisation and Architecture/ICARUS/src/units/imm_gen.sv" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module imm_gen
+INFO: [VRFC 10-2263] Analyzing SystemVerilog file "C:/VAMSHI/IIT Mandi Academic Folder/IITM 5th Sem/Computer Organisation and Architecture/ICARUS/src/units/issue_unit.sv" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module issue_unit
+INFO: [VRFC 10-2263] Analyzing SystemVerilog file "C:/VAMSHI/IIT Mandi Academic Folder/IITM 5th Sem/Computer Organisation and Architecture/ICARUS/src/units/reg_status_table.sv" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module reg_status_table
+INFO: [VRFC 10-2263] Analyzing SystemVerilog file "C:/VAMSHI/IIT Mandi Academic Folder/IITM 5th Sem/Computer Organisation and Architecture/ICARUS/src/units/regfile.sv" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module regfile
+INFO: [VRFC 10-2263] Analyzing SystemVerilog file "C:/VAMSHI/IIT Mandi Academic Folder/IITM 5th Sem/Computer Organisation and Architecture/ICARUS/src/core/rv32i_cpu.sv" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module rv32i_cpu
+WARNING: [VRFC 10-3380] identifier 'redirect_taken_any' is used before its declaration [C:/VAMSHI/IIT Mandi Academic Folder/IITM 5th Sem/Computer Organisation and Architecture/ICARUS/src/core/rv32i_cpu.sv:316]
+WARNING: [VRFC 10-3380] identifier 'redirect_taken_any' is used before its declaration [C:/VAMSHI/IIT Mandi Academic Folder/IITM 5th Sem/Computer Organisation and Architecture/ICARUS/src/core/rv32i_cpu.sv:317]
+WARNING: [VRFC 10-3380] identifier 'redirect_taken_any' is used before its declaration [C:/VAMSHI/IIT Mandi Academic Folder/IITM 5th Sem/Computer Organisation and Architecture/ICARUS/src/core/rv32i_cpu.sv:347]
+INFO: [VRFC 10-2263] Analyzing SystemVerilog file "C:/VAMSHI/IIT Mandi Academic Folder/IITM 5th Sem/Computer Organisation and Architecture/ICARUS/sim/simple_memory.sv" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module simple_memory
+INFO: [VRFC 10-2263] Analyzing SystemVerilog file "C:/VAMSHI/IIT Mandi Academic Folder/IITM 5th Sem/Computer Organisation and Architecture/ICARUS/sim/universal_tb.sv" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module universal_tb
