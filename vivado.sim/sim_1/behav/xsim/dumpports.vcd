@@ -1,0 +1,240 @@
+$date
+   Thu Nov 20 23:50:16 2025
+$end
+
+$version
+  2024.1
+$end
+
+$timescale
+  1ps
+$end
+
+$scope module universal_tb.dut $end
+$var port 1 <0 clk $end
+$var port 1 <1 rst $end
+$var port [31:0] <2 instr_addr $end
+$var port [31:0] <3 instr_rdata $end
+$var port [31:0] <4 instr_addr1 $end
+$var port [31:0] <5 instr_rdata1 $end
+$var port [31:0] <6 data_addr $end
+$var port [31:0] <7 data_wdata $end
+$var port [3:0] <8 data_we $end
+$var port 1 <9 data_re $end
+$var port [31:0] <10 data_rdata $end
+$var port [31:0] <11 dbg_pc_f $end
+$var port [31:0] <12 dbg_instr_f $end
+$var port [31:0] <13 dbg_instr_d $end
+$var port [31:0] <14 dbg_instr_e $end
+$var port [31:0] <15 dbg_instr_e1 $end
+$var port [31:0] <16 dbg_result_e $end
+$var port [31:0] <17 dbg_result_e1 $end
+$var port 1 <18 dbg_branch_taken $end
+$var port 1 <19 dbg_branch_taken1 $end
+$var port 1 <20 dbg_jump_taken $end
+$var port 1 <21 dbg_jump_taken1 $end
+$var port [31:0] <22 dbg_jump_target $end
+$var port [31:0] <23 dbg_jump_target1 $end
+$var port 1 <24 dbg_stall $end
+$var port 1 <25 dbg_fwd_rs1 $end
+$var port 1 <26 dbg_fwd_rs2 $end
+$var port [31:0] <27 dbg_busy_vec $end
+$scope module universal_tb.dut.u_regfile $end
+$var port 1 <0 clk $end
+$var port 1 <1 rst $end
+$var port 1 <28 we0 $end
+$var port [4:0] <29 waddr0 $end
+$var port [31:0] <30 wdata0 $end
+$var port 1 <31 we1 $end
+$var port [4:0] <32 waddr1 $end
+$var port [31:0] <33 wdata1 $end
+$var port [4:0] <34 raddr0_1 $end
+$var port [4:0] <35 raddr0_2 $end
+$var port [31:0] <36 rdata0_1 $end
+$var port [31:0] <37 rdata0_2 $end
+$var port [4:0] <38 raddr1_1 $end
+$var port [4:0] <39 raddr1_2 $end
+$var port [31:0] <40 rdata1_1 $end
+$var port [31:0] <41 rdata1_2 $end
+$upscope $end
+$scope module universal_tb.dut.u_decoder $end
+$var port [31:0] <42 instr $end
+$var port 1 <43 ctrl $end
+$var port [4:0] <44 rs1 $end
+$var port [4:0] <45 rs2 $end
+$var port [4:0] <46 rd $end
+$var port 1 <47 use_rs1 $end
+$var port 1 <48 use_rs2 $end
+$upscope $end
+$scope module universal_tb.dut.u_decoder1 $end
+$var port 1 <49 use_rs2 $end
+$var port 1 <50 use_rs1 $end
+$var port [4:0] <51 rd $end
+$var port [4:0] <52 rs2 $end
+$var port [4:0] <53 rs1 $end
+$var port 1 <54 ctrl $end
+$var port [31:0] <55 instr $end
+$upscope $end
+$scope module universal_tb.dut.u_imm_gen $end
+$var port [31:0] <56 instr $end
+$var port 1 <57 imm_sel $end
+$var port [31:0] <58 imm $end
+$upscope $end
+$scope module universal_tb.dut.u_imm_gen1 $end
+$var port [31:0] <59 imm $end
+$var port 1 <60 imm_sel $end
+$var port [31:0] <61 instr $end
+$upscope $end
+$scope module universal_tb.dut.u_reg_status_table $end
+$var port 1 <0 clk $end
+$var port 1 <1 rst $end
+$var port 1 <62 issue0 $end
+$var port 1 <63 issue1 $end
+$var port 1 <64 reg_write0_issue $end
+$var port 1 <65 reg_write1_issue $end
+$var port [4:0] <66 rd0_issue $end
+$var port [4:0] <67 rd1_issue $end
+$var port 1 <68 is_load0_issue $end
+$var port 1 <69 is_load1_issue $end
+$var port [4:0] <70 rs1_0 $end
+$var port [4:0] <71 rs2_0 $end
+$var port [4:0] <72 rs1_1 $end
+$var port [4:0] <73 rs2_1 $end
+$var port 1 <74 use_rs1_0 $end
+$var port 1 <75 use_rs2_0 $end
+$var port 1 <76 use_rs1_1 $end
+$var port 1 <77 use_rs2_1 $end
+$var port 1 <78 wb0_we $end
+$var port [4:0] <79 wb0_rd $end
+$var port 1 <80 wb1_we $end
+$var port [4:0] <81 wb1_rd $end
+$var port 1 <82 raw_hazard1 $end
+$var port 1 <83 waw_hazard1 $end
+$var port 1 <84 load_use0 $end
+$var port 1 <85 load_use1 $end
+$var port [31:0] <86 busy_vec $end
+$var port [31:0] <87 load_pending_vec $end
+$upscope $end
+$scope module universal_tb.dut.u_issue_unit $end
+$var port 1 <43 ctrl0 $end
+$var port 1 <54 ctrl1 $end
+$var port 1 <88 raw_hazard1 $end
+$var port 1 <89 waw_hazard1 $end
+$var port 1 <90 load_use0 $end
+$var port 1 <91 load_use1 $end
+$var port 1 <92 issue_slot0 $end
+$var port 1 <93 issue_slot1 $end
+$var port 1 <94 stall_if $end
+$upscope $end
+$scope module universal_tb.dut.u_forward_unit $end
+$var port [4:0] <95 rs1_0_id $end
+$var port [4:0] <96 rs2_0_id $end
+$var port [31:0] <97 rs1_0_reg $end
+$var port [31:0] <98 rs2_0_reg $end
+$var port [4:0] <99 rs1_1_id $end
+$var port [4:0] <100 rs2_1_id $end
+$var port [31:0] <101 rs1_1_reg $end
+$var port [31:0] <102 rs2_1_reg $end
+$var port [4:0] <103 rd_ex0 $end
+$var port 1 <28 reg_write_ex0 $end
+$var port 1 <104 is_load_ex0 $end
+$var port [31:0] <105 ex0_result $end
+$var port [4:0] <106 rd_ex1 $end
+$var port 1 <107 reg_write_ex1 $end
+$var port 1 <108 is_load_ex1 $end
+$var port [31:0] <109 ex1_result $end
+$var port [31:0] <110 fwd_rs1_0 $end
+$var port [31:0] <111 fwd_rs2_0 $end
+$var port 1 <112 fwd_rs1_0_en $end
+$var port 1 <113 fwd_rs2_0_en $end
+$var port [31:0] <114 fwd_rs1_1 $end
+$var port [31:0] <115 fwd_rs2_1 $end
+$upscope $end
+$scope module universal_tb.dut.u_branch0 $end
+$var port [31:0] <116 rs1_val $end
+$var port [31:0] <117 rs2_val $end
+$var port 1 <118 branch_type $end
+$var port 1 <119 take_branch $end
+$upscope $end
+$scope module universal_tb.dut.u_branch1 $end
+$var port 1 <120 take_branch $end
+$var port 1 <121 branch_type $end
+$var port [31:0] <122 rs2_val $end
+$var port [31:0] <123 rs1_val $end
+$upscope $end
+$upscope $end
+$enddefinitions $end
+
+#95000
+$dumpports
+pU 0 6 <0
+pD 6 0 <1
+pDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD 66666666666666666666666666666666 00000000000000000000000000000000 <10
+pNNNNN 66666 66666 <100
+pNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN 66666666666666666666666666666666 66666666666666666666666666666666 <101
+pNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN 66666666666666666666666666666666 66666666666666666666666666666666 <102
+pDDDDD 66666 00000 <103
+pD 6 0 <104
+pNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN 66666666666666666666666666666666 66666666666666666666666666666666 <105
+pDDDDD 66666 00000 <106
+pD 6 0 <107
+pD 6 0 <108
+pNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN 66666666666666666666666666666666 66666666666666666666666666666666 <109
+pDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD 66666666666666666666666666666666 00000000000000000000000000000000 <116
+pNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN 66666666666666666666666666666666 66666666666666666666666666666666 <117
+pDDD 666 000 <118
+pDDD 666 000 <121
+pDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD 66666666666666666666666666666666 00000000000000000000000000000000 <122
+pDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD 66666666666666666666666666666666 00000000000000000000000000000000 <123
+pD 6 0 <28
+pDDDDD 66666 00000 <29
+pNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN 66666666666666666666666666666666 66666666666666666666666666666666 <3
+pNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN 66666666666666666666666666666666 66666666666666666666666666666666 <30
+pD 6 0 <31
+pDDDDD 66666 00000 <32
+pNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN 66666666666666666666666666666666 66666666666666666666666666666666 <33
+pNNNNN 66666 66666 <34
+pNNNNN 66666 66666 <35
+pNNNNN 66666 66666 <38
+pNNNNN 66666 66666 <39
+pNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN 66666666666666666666666666666666 66666666666666666666666666666666 <42
+pNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN 66666666666666666666666666666666 66666666666666666666666666666666 <5
+pNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN 66666666666666666666666666666666 66666666666666666666666666666666 <55
+pNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN 66666666666666666666666666666666 66666666666666666666666666666666 <56
+pDDD 666 000 <57
+pDDD 666 000 <60
+pNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN 66666666666666666666666666666666 66666666666666666666666666666666 <61
+pN 6 6 <62
+pN 6 6 <63
+pD 6 0 <64
+pD 6 0 <65
+pNNNNN 66666 66666 <66
+pNNNNN 66666 66666 <67
+pD 6 0 <68
+pD 6 0 <69
+pNNNNN 66666 66666 <70
+pNNNNN 66666 66666 <71
+pNNNNN 66666 66666 <72
+pNNNNN 66666 66666 <73
+pU 0 6 <74
+pD 6 0 <75
+pU 0 6 <76
+pD 6 0 <77
+pD 6 0 <78
+pDDDDD 66666 00000 <79
+pD 6 0 <80
+pDDDDD 66666 00000 <81
+pN 6 6 <88
+pD 6 0 <89
+pN 6 6 <90
+pN 6 6 <91
+pNNNNN 66666 66666 <95
+pNNNNN 66666 66666 <96
+pNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN 66666666666666666666666666666666 66666666666666666666666666666666 <97
+pNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN 66666666666666666666666666666666 66666666666666666666666666666666 <98
+pNNNNN 66666 66666 <99
+$end
+
+$vcdclose
+#95000
+$end

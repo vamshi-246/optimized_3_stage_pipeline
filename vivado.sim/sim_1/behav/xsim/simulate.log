@@ -1,0 +1,6 @@
+Time resolution is 1 ps
+Defaulting to program C:/VAMSHI/IIT Mandi Academic Folder/IITM 5th Sem/Computer Organisation and Architecture/ICARUS/tests/dual_issue_showcase.hex
+ERROR: Could not open VCD file sim/out.vcd for writing.
+WARNING: file sim/pipeline_trace.log could not be opened
+Halting on system instruction at cycle 7
+$finish called at time : 115 ns : File "C:/VAMSHI/IIT Mandi Academic Folder/IITM 5th Sem/Computer Organisation and Architecture/ICARUS/sim/universal_tb.sv" Line 306

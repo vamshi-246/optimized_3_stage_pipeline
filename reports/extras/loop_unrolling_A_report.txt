@@ -1,0 +1,38 @@
+--- Program (from hex) ---
+    Addr |    Instr | Disassembly
+----------------------------------------
+00000000 | 00000093 | addi x1, x0, 0
+00000004 | 00100113 | addi x2, x0, 1
+00000008 | 00510193 | addi x3, x2, 5
+0000000c | 00310063 | beq x2, x3, 0
+00000010 | 00208023 | sb x2, 0(x1)
+00000014 | 00118193 | addi x3, x3, 1
+00000018 | 00100073 | system
+
+=== Pipeline Report ===
+Trace file      : sim\pipeline_trace.log
+Program hex     : tests\loop_unrolling_A.hex
+Total cycles    : 5
+Instructions    : 7
+CPI / IPC       : 0.714 / 1.400
+Branches taken  : 0
+Potential RAW hazards (decode vs prev execute): 1
+Stall cycles (load-use)   : 0
+Cycles with forwarding    : 1
+
+--- Timeline ---
+Cycle |     PC_F | F0                 | F1                 | D0[i0]                 | D1[i1]                 | E0/R0                      | E1/R1                      | Notes
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+    0 | 00000004 | addi x1, x0, 0     | addi x2, x0, 1     | nop                i0=0 | nop                i1=0 | nop          00000000 | nop          00000000 | 
+    1 | 00000008 | addi x3, x2, 5     | beq x2, x3, 0      | addi x1, x0, 0     i0=0 | addi x2, x0, 1     i1=0 | addi x1, x0, 0 00000000 | addi x2, x0, 1 00000001 | RAW1(scoreboard)
+    2 | 0000000c | beq x2, x3, 0      | sb x2, 0(x1)       | addi x3, x2, 5     i0=0 | nop                i1=0 | addi x3, x2, 5 00000005 | nop          00000000 | F0_RS2=EX0;F1_RS1=EX0;F1_RS2=EX1
+    3 | 00000014 | addi x3, x3, 1     | system             | beq x2, x3, 0      i0=0 | sb x2, 0(x1)       i1=0 | beq x2, x3, 0 00000006 | sb x2, 0(x1) 00000000 | 
+    4 | 0000001c | nop                | nop                | addi x3, x3, 1     i0=0 | system             i1=0 | addi x3, x3, 1 00000006 | system       00000001 | 
+
+=== Summary ===
+Total cycles        : 5
+IPC                 : 1.400
+Dual-issue cycles   : 0
+Stall cycles        : 0
+Hazards (raw/waw/ld): 1/0/0/0
+Forwarding counts   : F0_RS1(EX0)=0, F0_RS2(EX0)=1, F1_RS1(EX1)=0, F1_RS2(EX1)=1, F1_RS1(EX0)=1, F1_RS2(EX0)=0
